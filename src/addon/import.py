@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Dict, List, Tuple
+import unicodedata
 
 from anki.media import media_paths_from_col_path
 from aqt import mw
@@ -21,15 +22,18 @@ def import_media(src: Path) -> None:
     files_list: List[Path] = []
     search_files(files_list, src)
 
-    # 2. Make sure there isn't a naming conflict.
+    # 2. Normalize file names
+    normalize_name(files_list)
+
+    # 3. Make sure there isn't a naming conflict.
     duplicates = search_name_conflict(files_list)
     assert len(duplicates) == 0
 
-    # 3. Add the media.
+    # 4. Add the media.
     for file in files_list:
         add_media(file)
 
-    # 4. Write output: How many added, how many not actually in notes...?
+    # 5. Write output: How many added, how many not actually in notes...?
     tooltip("{} media files added.".format(len(files_list)))
 
 
@@ -43,12 +47,20 @@ def search_files(files: List[Path], src: Path) -> None:
             search_files(files, path)
 
 
+def normalize_name(files: List[Path]) -> None:
+    """Renames media files to have normalized names."""
+    for file in files:
+        name = file.name
+        normalized_name = unicodedata.normalize("NFC", name)
+        if name != normalized_name:
+            file.rename(normalized_name)
+
+
 def search_name_conflict(new_files: List[Path]) -> List[Path]:
     """
         Would be great if we could get the file names from the media.db,
         but currently not quite easy to access it unlike collection db.
         TODO: If there's a name conflict with existing file, check if they have same content.
-        TODO: Normalize file names as done in Anki rust normalize_filename
     """
     # 1. Search for name conflicts within new media
     # Which can happen if the media are in different subdirectories
