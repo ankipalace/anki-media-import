@@ -20,6 +20,7 @@ def import_media(src: Path) -> None:
     # 1. Get the name of all media files.
     files_list: List[Path] = []
     search_files(files_list, src)
+    print("{} Media Files Found".format(len(files_list)))
     # 2. Normalize file names
     normalize_name(files_list)
 
@@ -85,6 +86,26 @@ def search_name_conflict(new_files: List[Path]) -> Dict[str, List[Path]]:
 
     return name_conflicts
 
+
+def hash_file(file: Path) -> str:
+    return checksum(file.read_bytes())
+
+
+def is_duplicate_file(files: List[Path]) -> bool:
+    assert len(files) > 1
+    file_checksum = hash_file(files[0])
+    for i in range(1, len(files)):
+        file = files[i]
+        if hash_file(file) != file_checksum:
+            return False
+    return True
+
+
+def filter_duplicate_files(name_conflicts: Dict[str, List[Path]]) -> None:
+    for file_name in name_conflicts:
+        files = name_conflicts[file_name]
+        if is_duplicate_file(files):
+            del name_conflicts[file_name]
 
 
 def add_media(src: Path) -> None:
