@@ -19,10 +19,10 @@ def import_media(src: Path) -> None:
     """
 
     # 1. Get the name of all media files.
+    files_list: List[Path] = []
     if src.is_file():
-        files_list = [src]
+        files_list.append(src)
     elif src.is_dir():
-        files_list: List[Path] = []
         search_files(files_list, src)
     else:
         print(f"{DEBUG_PREFIX} Invalid path: {src}")
