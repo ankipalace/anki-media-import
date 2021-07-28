@@ -13,14 +13,19 @@ MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
 
 def import_media(src: Path) -> None:
     """
-    Import media from a directory, and its subdirectories.
-    TODO: Allow importing an individual media.
+    Import media from a directory, and its subdirectories. 
+    (Or import a specific file.)
     """
-    assert src.is_dir()
+
     # 1. Get the name of all media files.
-    files_list: List[Path] = []
-    search_files(files_list, src)
-    print("{} Media Files Found".format(len(files_list)))
+    if src.is_file():
+        files_list = [src]
+    elif src.is_dir():
+        files_list: List[Path] = []
+        search_files(files_list, src)
+    else:
+        return
+
     # 2. Normalize file names
     normalize_name(files_list)
 
