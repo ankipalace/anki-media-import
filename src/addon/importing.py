@@ -69,7 +69,6 @@ def search_name_conflict(new_files: List[Path]) -> Dict[str, List[Path]]:
     """
         Would be great if we could get the file names from the media.db,
         but currently not quite easy to access it unlike collection db.
-        TODO: If there's a name conflict with existing file, check if they have same content.
     """
     # 1. Search for name conflicts within new media
     # Which can happen if the media are in different subdirectories
@@ -122,4 +121,5 @@ def add_media(src: Path) -> None:
         But may change the name if it overlaps with existing media.
         Therefore make sure there isn't an existing media with the same name!
     """
-    mw.col.media.add_file(str(src))
+    new_name = mw.col.media.add_file(str(src))
+    assert new_name == src.name
