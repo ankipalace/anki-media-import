@@ -9,6 +9,7 @@ from aqt.utils import tooltip
 import aqt.editor
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
+DEBUG_PREFIX = "Media Import:"
 
 
 def import_media(src: Path) -> None:
@@ -24,7 +25,9 @@ def import_media(src: Path) -> None:
         files_list: List[Path] = []
         search_files(files_list, src)
     else:
+        print(f"{DEBUG_PREFIX} Invalid path: {src}")
         return
+    print(f"{DEBUG_PREFIX} {len(files_list)} Media Files Found")
 
     # 2. Normalize file names
     normalize_name(files_list)
@@ -40,7 +43,7 @@ def import_media(src: Path) -> None:
 
     # 5. Write output: How many added, how many not actually in notes...?
     tooltip("{} media files added.".format(len(files_list)))
-    print("import done, {} files".format(len(files_list)))
+    print(f"{DEBUG_PREFIX} import done: {len(files_list)} files")
 
 
 def search_files(files: List[Path], src: Path) -> None:
