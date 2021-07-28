@@ -3,13 +3,12 @@ from typing import Dict, List, Tuple
 import unicodedata
 
 from anki.media import media_paths_from_col_path
+from anki.utils import checksum
 from aqt import mw
 from aqt.utils import tooltip
 import aqt.editor
 
-
-MEDIA_DIR = Path(media_paths_from_col_path(mw.col.path)[0])
-MEDIA_EXT: Tuple[str] = aqt.editor.pics + aqt.editor.audio
+MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
 
 
 def import_media(src: Path) -> None:
@@ -21,13 +20,13 @@ def import_media(src: Path) -> None:
     # 1. Get the name of all media files.
     files_list: List[Path] = []
     search_files(files_list, src)
-
     # 2. Normalize file names
     normalize_name(files_list)
 
     # 3. Make sure there isn't a naming conflict.
-    duplicates = search_name_conflict(files_list)
-    assert len(duplicates) == 0
+    name_conflicts = search_name_conflict(files_list)
+    filter_duplicate_files(name_conflicts)
+    assert len(name_conflicts) == 0
 
     # 4. Add the media.
     for file in files_list:
@@ -35,13 +34,14 @@ def import_media(src: Path) -> None:
 
     # 5. Write output: How many added, how many not actually in notes...?
     tooltip("{} media files added.".format(len(files_list)))
+    print("import done, {} files".format(len(files_list)))
 
 
 def search_files(files: List[Path], src: Path) -> None:
     """Searches for files recursively, adding them to files"""
     for path in src.iterdir():
         if path.is_file():
-            if path.suffix in MEDIA_EXT:
+            if path.suffix[1:] in MEDIA_EXT:  # remove '.'
                 files.append(path)
         elif path.is_dir():
             search_files(files, path)
@@ -56,7 +56,7 @@ def normalize_name(files: List[Path]) -> None:
             file.rename(normalized_name)
 
 
-def search_name_conflict(new_files: List[Path]) -> List[Path]:
+def search_name_conflict(new_files: List[Path]) -> Dict[str, List[Path]]:
     """
         Would be great if we could get the file names from the media.db,
         but currently not quite easy to access it unlike collection db.
@@ -66,10 +66,11 @@ def search_name_conflict(new_files: List[Path]) -> List[Path]:
     # Which can happen if the media are in different subdirectories
     # 2. Search for name conflicts in existing media
     existing_files: List[Path] = []
-    search_files(existing_files, MEDIA_DIR)
+    media_dir = Path(media_paths_from_col_path(mw.col.path)[0])
+    search_files(existing_files, media_dir)
 
     file_names: Dict[str, Path] = {}
-    duplicate_files: Dict[str, List[Path]] = {}
+    name_conflicts: Dict[str, List[Path]] = {}
 
     for files in (new_files, existing_files):
         for file in files:
@@ -77,11 +78,13 @@ def search_name_conflict(new_files: List[Path]) -> List[Path]:
             if name not in file_names:
                 file_names[name] = file
             else:  # There may be more than 2 duplicate files
-                if name not in duplicate_files:
+                if name not in name_conflicts:
                     duplicate = file_names[name]
-                    duplicate_files[name] = [duplicate]
-                duplicate_files[name].append(file)
-    return duplicate_files
+                    name_conflicts[name] = [duplicate]
+                name_conflicts[name].append(file)
+
+    return name_conflicts
+
 
 
 def add_media(src: Path) -> None:
@@ -90,4 +93,4 @@ def add_media(src: Path) -> None:
         But may change the name if it overlaps with existing media.
         Therefore make sure there isn't an existing media with the same name!
     """
-    mw.col.media.add_file(src)
+    mw.col.media.add_file(str(src))
