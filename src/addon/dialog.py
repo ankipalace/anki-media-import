@@ -1,10 +1,11 @@
 from typing import Optional, Tuple
 from pathlib import Path
 
+from anki.media import media_paths_from_col_path
 from anki.utils import isWin
 from aqt import mw
 from aqt.qt import *
-from aqt.utils import openLink, restoreGeom, saveGeom
+from aqt.utils import openFolder, openLink, restoreGeom, saveGeom
 import aqt.editor
 
 from .importing import import_media
@@ -103,6 +104,10 @@ class ImportDialog(QDialog):
         import_media(path)
         self.close()
 
+    def open_media_dir(self) -> None:
+        media_dir = media_paths_from_col_path(mw.col.path)[0]
+        openFolder(media_dir)
+
     def closeEvent(self, evt: QCloseEvent) -> None:
         saveGeom(self, f"addon-mediaImport-import")
 
@@ -111,6 +116,10 @@ class ImportDialog(QDialog):
         self.outer_layout.addSpacing(10)
         button_row = QHBoxLayout()
         self.outer_layout.addLayout(button_row)
+
+        media_dir_btn = QPushButton("Open Media Folder")
+        media_dir_btn.clicked.connect(self.open_media_dir)
+        button_row.addWidget(media_dir_btn)
 
         button_row.addStretch(1)
         cancel_btn = QPushButton("Cancel")
