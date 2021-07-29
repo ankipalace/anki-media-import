@@ -8,19 +8,21 @@ from aqt.qt import *
 from aqt.utils import openFolder, openLink, restoreGeom, saveGeom
 import aqt.editor
 
-from .importing import import_media
+from .importing import import_media, get_list_of_files
 
 
-class ImportDialog(QDialog):
+class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
     def __init__(self) -> None:
         QDialog.__init__(self, mw, Qt.Window)
         self.setWindowTitle("Import Media")
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.setMinimumWidth(500)
-        self.setup()
+        self.setup_main()
+        self.setup_mid()
         self.setup_buttons()
         restoreGeom(self, f"addon-mediaimport-import")
+        self.update_file_count()
 
     def format_exts(self, ext_list: Tuple[str, ...], name: str) -> str:
         exts_filter = ""
@@ -61,7 +63,19 @@ class ImportDialog(QDialog):
         else:
             return None
 
-    def setup(self) -> None:
+    def update_file_count(self) -> None:
+        path = self.path_input.text()
+        if path == "":
+            self.files_count_label.setText("Input a Path")
+            return
+        files_list = get_list_of_files(Path(path))
+        if files_list is None:
+            self.files_count_label.setText("Invalid Path")
+        else:
+            self.files_count_label.setText(
+                "{} Files Found".format(len(files_list)))
+
+    def setup_main(self) -> None:
         outer_layout = QVBoxLayout()
         self.outer_layout = outer_layout
         self.setLayout(outer_layout)
@@ -83,6 +97,7 @@ class ImportDialog(QDialog):
         path_input = QLineEdit()
         self.path_input = path_input
         path_input.setMinimumWidth(200)
+        path_input.editingFinished.connect(self.update_file_count)
         row.addWidget(path_input)
 
         def on_browse() -> None:
@@ -94,10 +109,21 @@ class ImportDialog(QDialog):
                 raise Exception("Import Media: What happened to the dropdown?")
             if path is not None:
                 path_input.setText(path)
+                self.update_file_count()
 
         browse_button = QPushButton("Browse")
         browse_button.clicked.connect(on_browse)
         row.addWidget(browse_button)
+
+    def setup_mid(self) -> None:
+        middle_row = QHBoxLayout()
+        # TODO: Position the label right under the path input
+        files_count_label = QLabel("")
+        self.files_count_label = files_count_label
+        middle_row.addWidget(files_count_label)
+        self.outer_layout.addLayout(middle_row)
+        self.outer_layout.addStretch(1)
+        self.outer_layout.addSpacing(10)
 
     def on_import(self) -> None:
         path = Path(self.path_input.text())
@@ -112,8 +138,6 @@ class ImportDialog(QDialog):
         saveGeom(self, f"addon-mediaImport-import")
 
     def setup_buttons(self) -> None:
-        self.outer_layout.addStretch(1)
-        self.outer_layout.addSpacing(10)
         button_row = QHBoxLayout()
         self.outer_layout.addLayout(button_row)
 

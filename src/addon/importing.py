@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import unicodedata
 
 from anki.media import media_paths_from_col_path
@@ -16,16 +16,13 @@ def import_media(src: Path) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
+    TODO: add a progress bar
     """
 
     # 1. Get the name of all media files.
-    files_list: List[Path] = []
-    if src.is_file():
-        files_list.append(src)
-    elif src.is_dir():
-        search_files(files_list, src)
-    else:
-        print(f"{DEBUG_PREFIX} Invalid path: {src}")
+    files_list = get_list_of_files(src)
+    if files_list is None:
+        tooltip("Invalid Path")
         return
     print(f"{DEBUG_PREFIX} {len(files_list)} Media Files Found")
 
@@ -44,6 +41,18 @@ def import_media(src: Path) -> None:
     # 5. Write output: How many added, how many not actually in notes...?
     tooltip("{} media files added.".format(len(files_list)))
     print(f"{DEBUG_PREFIX} import done: {len(files_list)} files")
+
+
+def get_list_of_files(src: Path) -> Optional[List[Path]]:
+    files_list: List[Path] = []
+    if src.is_file():
+        files_list.append(src)
+    elif src.is_dir():
+        search_files(files_list, src)
+    else:
+        print(f"{DEBUG_PREFIX} Invalid path: {src}")
+        return None
+    return files_list
 
 
 def search_files(files: List[Path], src: Path) -> None:
