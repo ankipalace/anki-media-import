@@ -37,7 +37,7 @@ def import_media(src: Path) -> None:
     assert len(name_conflicts) == 0
 
     # 4. Add media files in chunk in background.
-    CHUNK_SIZE = 20
+    CHUNK_SIZE = 5
     totcnt = len(files_list)
     print("Media Import: Adding media")
 
