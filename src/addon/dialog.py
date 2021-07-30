@@ -169,22 +169,23 @@ class ImportDialog(QDialog):
     def update_file_count(self) -> None:
         path = self.path_input.text()
         if path == "":
-            self.fcount_label.setText("Input a Path")
+            self.fcount_label.setText("Input a path")
             self.valid_path = False
             return
+        self.fcount_label.setText("Calculating number of files")
         try:
             files_list = get_list_of_files(Path(path))
         except PermissionError:
-            self.fcount_label.setText("Insufficient Permission")
+            self.fcount_label.setText("Insufficient permission")
             self.valid_path = False
             return
 
         if files_list is None:
-            self.fcount_label.setText("Invalid Path")
+            self.fcount_label.setText("Invalid path")
             self.valid_path = False
         else:
             self.fcount_label.setText(
-                "{} Files Found".format(len(files_list)))
+                "{} files found".format(len(files_list)))
             self.valid_path = True
 
 
