@@ -124,7 +124,7 @@ def search_files(files: List[Path], src: Path, recursive: bool) -> None:
     """Searches for files recursively, adding them to files. src must be a directory."""
     for path in src.iterdir():
         if path.is_file():
-            if path.suffix[1:] in MEDIA_EXT:  # remove '.'
+            if path.suffix[1:].lower() in MEDIA_EXT:  # remove '.'
                 files.append(path)
         elif recursive and path.is_dir():
             search_files(files, path, recursive=True)
