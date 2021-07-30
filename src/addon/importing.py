@@ -7,7 +7,6 @@ from anki.media import media_paths_from_col_path
 from anki.utils import checksum
 from aqt import mw
 from aqt.utils import tooltip
-from aqt.qt import QApplication
 import aqt.editor
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
@@ -23,7 +22,7 @@ def import_media(src: Path) -> None:
 
     # 1. Get the name of all media files.
     mw.progress.start(
-        parent=mw, label="Starting import", immediate=True)
+        parent=mw, label="Starting import", immediate=True)  # type: ignore
     files_list = get_list_of_files(src)
     if files_list is None:
         tooltip("Invalid Path")
@@ -42,7 +41,8 @@ def import_media(src: Path) -> None:
     totcnt = len(files_list)
     print("Media Import: Adding media")
 
-    # 5. Write output: How many added, how many not actually in notes...? (on_done)
+    # 5. Write output: How many added, how many not actually in notes...?
+    # TODO: Better reports - identical files, etc.
     def finish_import() -> None:
         mw.progress.finish()
         print(f"{DEBUG_PREFIX} {totcnt} Media Files added")

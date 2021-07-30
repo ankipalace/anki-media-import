@@ -43,17 +43,101 @@ class ImportDialog(QDialog):
         self.update_file_count()
         self.valid_path = False
 
-    def format_exts(self) -> str:
+    def setup(self) -> None:
+        outer_layout = QVBoxLayout(self)
+        self.outer_layout = outer_layout
+        self.setLayout(outer_layout)
+
+        main_grid = QGridLayout(self)
+
+        outer_layout.addLayout(main_grid)
+
+        import_text = qlabel("Import")
+        main_grid.addWidget(import_text, 0, 0)
+
+        dropdown = QComboBox()
+        self.filemode_dropdown = dropdown
+        options = ("Directory", "File")
+        self.filemode_dropdown_opts = options
+        for option in options:
+            dropdown.addItem(option)
+        dropdown.setCurrentIndex(0)
+        main_grid.addWidget(dropdown, 0, 1)
+        self.import_dropdown = dropdown
+
+        path_input = QLineEdit()
+        self.path_input = path_input
+        path_input.setMinimumWidth(200)
+        path_input.textEdited.connect(self.update_file_count)
+        main_grid.addWidget(path_input, 0, 2)
+
+        browse_button = QPushButton("Browse")
+        browse_button.clicked.connect(self.on_browse)
+        main_grid.addWidget(browse_button, 0, 3)
+
+        fcount_label = small_qlabel("")
+        self.fcount_label = fcount_label
+        main_grid.addWidget(fcount_label, 1, 2)
+
+        self.outer_layout.addStretch(1)
+        self.outer_layout.addSpacing(10)
+
+    def setup_buttons(self) -> None:
+        button_row = QHBoxLayout()
+        self.outer_layout.addLayout(button_row)
+
+        media_dir_btn = QPushButton("Open Media Folder")
+        media_dir_btn.clicked.connect(self.open_media_dir)
+        button_row.addWidget(media_dir_btn)
+
+        button_row.addStretch(1)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.close)
+        button_row.addWidget(cancel_btn)
+
+        import_btn = QPushButton("Import")
+        import_btn.clicked.connect(self.on_import)
+        button_row.addWidget(import_btn)
+
+    def on_browse(self) -> None:
+        dropdown = self.filemode_dropdown
+        options = self.filemode_dropdown_opts
+        if dropdown.currentText() == options[0]:  # Directory
+            path = self.get_directory()
+        elif dropdown.currentText() == options[1]:  # File
+            path = self.get_file()
+        else:
+            raise Exception("Import Media: What happened to the dropdown?")
+        if path is not None:
+            self.path_input.setText(path)
+            self.update_file_count()
+
+    def on_import(self) -> None:
+        path = Path(self.path_input.text())
+        if self.valid_path:
+            import_media(path)
+            self.close()
+        else:
+            tooltip("Invalid Path", parent=self)  # type: ignore
+
+    def open_media_dir(self) -> None:
+        media_dir = media_paths_from_col_path(mw.col.path)[0]
+        openFolder(media_dir)
+
+    def closeEvent(self, evt: QCloseEvent) -> None:
+        saveGeom(self, f"addon-mediaImport-import")
+
+    def file_name_filter(self) -> str:
         exts_filter = ""
         for ext_list in (aqt.editor.pics, aqt.editor.audio):
             for ext in ext_list:
                 exts_filter += f"*.{ext} "
-        image_exts = exts_filter[:-1]  # remove last whitespace
-        return f"Image & Audio Files ({image_exts})"
+        exts_filter = exts_filter[:-1]  # remove last whitespace
+        return f"Image & Audio Files ({exts_filter})"
 
     def file_dialog(self) -> QFileDialog:
         dialog = QFileDialog(self)
-        dialog.setNameFilter(self.format_exts())
+        dialog.setNameFilter(self.file_name_filter())
         dialog.setOption(QFileDialog.ShowDirsOnly, False)
         if isWin:
             # Windows directory chooser doesn't display files
@@ -102,86 +186,6 @@ class ImportDialog(QDialog):
                 "{} Files Found".format(len(files_list)))
             self.valid_path = True
 
-    def setup(self) -> None:
-        outer_layout = QVBoxLayout(self)
-        self.outer_layout = outer_layout
-        self.setLayout(outer_layout)
-
-        main_grid = QGridLayout(self)
-
-        outer_layout.addLayout(main_grid)
-
-        import_text = qlabel("Import")
-        main_grid.addWidget(import_text, 0, 0)
-
-        dropdown = QComboBox()
-        options = ("Directory", "File")
-        for option in options:
-            dropdown.addItem(option)
-        dropdown.setCurrentIndex(0)
-        main_grid.addWidget(dropdown, 0, 1)
-        self.import_dropdown = dropdown
-
-        path_input = QLineEdit()
-        self.path_input = path_input
-        path_input.setMinimumWidth(200)
-        path_input.textEdited.connect(self.update_file_count)
-        main_grid.addWidget(path_input, 0, 2)
-
-        def on_browse() -> None:
-            if dropdown.currentText() == options[0]:  # Directory
-                path = self.get_directory()
-            elif dropdown.currentText() == options[1]:  # File
-                path = self.get_file()
-            else:
-                raise Exception("Import Media: What happened to the dropdown?")
-            if path is not None:
-                path_input.setText(path)
-                self.update_file_count()
-
-        browse_button = QPushButton("Browse")
-        browse_button.clicked.connect(on_browse)
-        main_grid.addWidget(browse_button, 0, 3)
-
-        fcount_label = small_qlabel("")
-        self.fcount_label = fcount_label
-        main_grid.addWidget(fcount_label, 1, 2)
-
-        self.outer_layout.addStretch(1)
-        self.outer_layout.addSpacing(10)
-
-    def on_import(self) -> None:
-        path = Path(self.path_input.text())
-        if self.valid_path:
-            import_media(path)
-            self.close()
-        else:
-            tooltip("Invalid Path", parent=self)
-
-    def open_media_dir(self) -> None:
-        media_dir = media_paths_from_col_path(mw.col.path)[0]
-        openFolder(media_dir)
-
-    def closeEvent(self, evt: QCloseEvent) -> None:
-        saveGeom(self, f"addon-mediaImport-import")
-
-    def setup_buttons(self) -> None:
-        button_row = QHBoxLayout()
-        self.outer_layout.addLayout(button_row)
-
-        media_dir_btn = QPushButton("Open Media Folder")
-        media_dir_btn.clicked.connect(self.open_media_dir)
-        button_row.addWidget(media_dir_btn)
-
-        button_row.addStretch(1)
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.close)
-        button_row.addWidget(cancel_btn)
-
-        import_btn = QPushButton("Import")
-        import_btn.clicked.connect(self.on_import)
-        button_row.addWidget(import_btn)
-
 
 def open_import_dialog() -> None:
     dialog = ImportDialog()
@@ -189,6 +193,7 @@ def open_import_dialog() -> None:
 
 
 # Anking menu code
+#####################################################
 
 
 def getMenu(parent: QWidget, menuName: str) -> QMenu:
