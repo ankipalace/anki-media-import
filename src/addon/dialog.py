@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 from pathlib import Path
+import math
 
 from anki.media import media_paths_from_col_path
 from anki.utils import isWin
@@ -14,6 +15,19 @@ from .importing import import_media, get_list_of_files
 def qlabel(text: str) -> QLabel:
     label = QLabel(text)
     label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+    return label
+
+
+def small_qlabel(text: str) -> QLabel:
+    label = qlabel(text)
+    font = label.font()
+    if font.pointSize() != -1:
+        font_size = math.floor(font.pointSize() * 0.92)
+        font.setPointSize(font_size)
+    else:
+        font_size = math.floor(font.pixelSize() * 0.92)
+        font.setPixelSize(font_size)
+    label.setFont(font)
     return label
 
 
@@ -70,13 +84,13 @@ class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
     def update_file_count(self) -> None:
         path = self.path_input.text()
         if path == "":
-            self.files_count_label.setText("Input a Path")
+            self.fcount_label.setText("Input a Path")
             return
         files_list = get_list_of_files(Path(path))
         if files_list is None:
-            self.files_count_label.setText("Invalid Path")
+            self.fcount_label.setText("Invalid Path")
         else:
-            self.files_count_label.setText(
+            self.fcount_label.setText(
                 "{} Files Found".format(len(files_list)))
 
     def setup(self) -> None:
@@ -120,9 +134,9 @@ class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
         browse_button.clicked.connect(on_browse)
         main_grid.addWidget(browse_button, 0, 3)
 
-        files_count_label = qlabel("")
-        self.files_count_label = files_count_label
-        main_grid.addWidget(files_count_label, 1, 2)
+        fcount_label = small_qlabel("")
+        self.fcount_label = fcount_label
+        main_grid.addWidget(fcount_label, 1, 2)
 
         self.outer_layout.addStretch(1)
         self.outer_layout.addSpacing(10)
