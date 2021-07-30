@@ -12,7 +12,7 @@ import aqt.editor
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
 DEBUG_PREFIX = "Media Import:"
-TEMP_DIR = Path(__file__).resolve() / "TEMP"
+TEMP_DIR = Path(__file__).resolve().parent / "TEMP"
 
 
 def import_media(src: Path) -> None:
