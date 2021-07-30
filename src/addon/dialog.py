@@ -149,6 +149,7 @@ class ImportDialog(QDialog):
         dialog = self.file_dialog()
         dialog.setFileMode(QFileDialog.Directory)
         if dialog.exec_():
+            # TODO this *can* raise error. ToFix!
             assert len(dialog.selectedFiles()) == 1
             path = dialog.selectedFiles()[0]
             return path

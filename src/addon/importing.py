@@ -27,19 +27,23 @@ def import_media(src: Path) -> None:
     if files_list is None:
         tooltip("Invalid Path")
         return
+    print(f"{DEBUG_PREFIX} {len(files_list)} files found.")
 
     # 2. Normalize file names
+    # TODO: Warn users when file names are about to change.
     normalize_name(files_list)
 
     # 3. Make sure there isn't a naming conflict.
     name_conflicts = search_name_conflict(files_list)
+    if len(name_conflicts):
+        print(name_conflicts)
     filter_identical_files(files_list, name_conflicts)
     assert len(name_conflicts) == 0
 
     # 4. Add media files in chunk in background.
     CHUNK_SIZE = 5
     totcnt = len(files_list)
-    print("Media Import: Adding media")
+    print(f"{DEBUG_PREFIX} Adding media - total {totcnt} files.")
 
     # 5. Write output: How many added, how many not actually in notes...?
     # TODO: Better reports - identical files, etc.
@@ -164,6 +168,7 @@ def is_identical_file(files: List[Path]) -> bool:
 
 def filter_identical_files(files_list: List[Path], name_conflicts: Dict[str, List[Path]]) -> None:
     """Removes files whose content is identical from name_conflicts """
+    # TODO: If there are identical files only in the new files, only remove one of them.
     for file_name in list(name_conflicts.keys()):
         files = name_conflicts[file_name]
         if is_identical_file(files):
