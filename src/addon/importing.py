@@ -2,6 +2,7 @@ from concurrent.futures import Future
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import unicodedata
+import shutil
 
 from anki.media import media_paths_from_col_path
 from anki.utils import checksum
@@ -11,6 +12,7 @@ import aqt.editor
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
 DEBUG_PREFIX = "Media Import:"
+TEMP_DIR = Path(__file__) / "TEMP"
 
 
 def import_media(src: Path) -> None:
@@ -30,7 +32,6 @@ def import_media(src: Path) -> None:
     print(f"{DEBUG_PREFIX} {len(files_list)} files found.")
 
     # 2. Normalize file names
-    # TODO: Warn users when file names are about to change.
     normalize_name(files_list)
 
     # 3. Make sure there isn't a naming conflict.
@@ -48,6 +49,7 @@ def import_media(src: Path) -> None:
     # 5. Write output: How many added, how many not actually in notes...?
     # TODO: Better reports - identical files, etc.
     def finish_import() -> None:
+        delete_temp_folder()
         mw.progress.finish()
         msg = f"{totcnt} media files added."
         print(f"{DEBUG_PREFIX} {msg}")
@@ -115,12 +117,20 @@ def search_files(files: List[Path], src: Path) -> None:
 
 
 def normalize_name(files: List[Path]) -> None:
-    """Renames media files to have normalized names."""
-    for file in files:
+    """If file name is not normalized, copy the file to a temp dir and rename it."""
+    TEMP_DIR.mkdir(exist_ok=True)
+
+    for idx, file in enumerate(files):
         name = file.name
         normalized_name = unicodedata.normalize("NFC", name)
         if name != normalized_name:
-            file.rename(normalized_name)
+            new_file = TEMP_DIR / normalized_name
+            shutil.copy(str(file), str(new_file))
+            files[idx] = new_file
+
+
+def delete_temp_folder() -> None:
+    shutil.rmtree(str(TEMP_DIR))
 
 
 def search_name_conflict(new_files: List[Path]) -> Dict[str, List[Path]]:
