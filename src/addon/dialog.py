@@ -85,7 +85,11 @@ class ImportDialog(QDialog):
         if path == "":
             self.fcount_label.setText("Input a Path")
             return
-        files_list = get_list_of_files(Path(path))
+        try:
+            files_list = get_list_of_files(Path(path))
+        except PermissionError:
+            self.fcount_label.setText("Insufficient Permission")
+            return
         if files_list is None:
             self.fcount_label.setText("Invalid Path")
         else:
