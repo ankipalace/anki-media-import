@@ -113,7 +113,7 @@ class ImportDialog(QDialog):
             self.update_file_count()
 
     def on_import(self) -> None:
-        path = Path(self.path_input.text())
+        path = Path(self.path_input.text()).resolve()
         if self.valid_path:
             import_media(path)
             self.close()
@@ -174,7 +174,7 @@ class ImportDialog(QDialog):
             return
         self.fcount_label.setText("Calculating number of files")
         try:
-            files_list = get_list_of_files(Path(path))
+            files_list = get_list_of_files(Path(path).resolve())
         except PermissionError:
             self.fcount_label.setText("Insufficient permission")
             self.valid_path = False

@@ -12,7 +12,7 @@ import aqt.editor
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
 DEBUG_PREFIX = "Media Import:"
-TEMP_DIR = Path(__file__) / "TEMP"
+TEMP_DIR = Path(__file__).resolve() / "TEMP"
 
 
 def import_media(src: Path) -> None:
@@ -142,7 +142,7 @@ def search_name_conflict(new_files: List[Path]) -> Dict[str, List[Path]]:
     # Which can happen if the media are in different subdirectories
     # 2. Search for name conflicts in existing media
     existing_files: List[Path] = []
-    media_dir = Path(media_paths_from_col_path(mw.col.path)[0])
+    media_dir = Path(media_paths_from_col_path(mw.col.path)[0]).resolve()
     search_files(existing_files, media_dir)
 
     file_names: Dict[str, Path] = {}
