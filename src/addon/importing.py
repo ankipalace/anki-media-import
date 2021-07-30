@@ -20,6 +20,7 @@ def import_media(src: Path) -> None:
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
     This may rename original files to remove invalid characters from file names.
+    TODO: collect various import ending into one
     """
 
     # 1. Get the name of all media files.
@@ -27,7 +28,8 @@ def import_media(src: Path) -> None:
         parent=mw, label="Starting import", immediate=True)  # type: ignore
     files_list = get_list_of_files(src)
     if files_list is None:
-        tooltip("Invalid Path")
+        mw.progress.finish()
+        tooltip("Invalid Path", parent=mw)
         return
     print(f"{DEBUG_PREFIX} {len(files_list)} files found.")
 
@@ -37,8 +39,9 @@ def import_media(src: Path) -> None:
     # 3. Make sure there isn't a name conflict within new files.
     if name_conflict_exists(files_list):
         msg = "There are multiple files with same name."
-        print(f"{DEBUG_PREFIX} msg")
-        tooltip(msg)
+        mw.progress.finish()
+        print(f"{DEBUG_PREFIX} {msg}")
+        tooltip(msg, parent=mw)
         return
 
     # 4. Check collection.media if there is a file with same name.
@@ -46,8 +49,9 @@ def import_media(src: Path) -> None:
     name_conflicts = name_exists_in_collection(files_list)
     if len(name_conflicts):
         msg = "{} files have the same name as existing media files."
+        mw.progress.finish()
         print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg)
+        tooltip(msg, parent=mw)
         return
 
     # 5. Add media files in chunk in background.
@@ -62,13 +66,14 @@ def import_media(src: Path) -> None:
         mw.progress.finish()
         msg = f"{totcnt} media files added."
         print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg)
+        tooltip(msg, parent=mw)
 
     def abort_import(count: int) -> None:
+        delete_temp_folder()
         mw.progress.finish()
         msg = f"Aborted import. {count} / {totcnt} media files were added."
         print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg)
+        tooltip(msg, parent=mw)
 
     def add_files(files: List[Path]) -> None:
         for file in files:
