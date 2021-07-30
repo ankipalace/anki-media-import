@@ -11,14 +11,19 @@ import aqt.editor
 from .importing import import_media, get_list_of_files
 
 
+def qlabel(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+    return label
+
+
 class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
     def __init__(self) -> None:
         QDialog.__init__(self, mw, Qt.Window)
         self.setWindowTitle("Import Media")
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setMinimumWidth(500)
-        self.setup_main()
-        self.setup_mid()
+        self.setup()
         self.setup_buttons()
         restoreGeom(self, f"addon-mediaimport-import")
         self.update_file_count()
@@ -74,30 +79,31 @@ class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
             self.files_count_label.setText(
                 "{} Files Found".format(len(files_list)))
 
-    def setup_main(self) -> None:
-        outer_layout = QVBoxLayout()
+    def setup(self) -> None:
+        outer_layout = QVBoxLayout(self)
         self.outer_layout = outer_layout
         self.setLayout(outer_layout)
 
-        row = QHBoxLayout()
-        outer_layout.addLayout(row)
+        main_grid = QGridLayout(self)
 
-        import_text = QLabel("Import")
-        row.addWidget(import_text)
+        outer_layout.addLayout(main_grid)
+
+        import_text = qlabel("Import")
+        main_grid.addWidget(import_text, 0, 0)
 
         dropdown = QComboBox()
         options = ("Directory", "File")
         for option in options:
             dropdown.addItem(option)
         dropdown.setCurrentIndex(0)
-        row.addWidget(dropdown)
+        main_grid.addWidget(dropdown, 0, 1)
         self.import_dropdown = dropdown
 
         path_input = QLineEdit()
         self.path_input = path_input
         path_input.setMinimumWidth(200)
         path_input.editingFinished.connect(self.update_file_count)
-        row.addWidget(path_input)
+        main_grid.addWidget(path_input, 0, 2)
 
         def on_browse() -> None:
             if dropdown.currentText() == options[0]:  # Directory
@@ -112,15 +118,12 @@ class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
 
         browse_button = QPushButton("Browse")
         browse_button.clicked.connect(on_browse)
-        row.addWidget(browse_button)
+        main_grid.addWidget(browse_button, 0, 3)
 
-    def setup_mid(self) -> None:
-        middle_row = QHBoxLayout()
-        # TODO: Position the label right under the path input
-        files_count_label = QLabel("")
+        files_count_label = qlabel("")
         self.files_count_label = files_count_label
-        middle_row.addWidget(files_count_label)
-        self.outer_layout.addLayout(middle_row)
+        main_grid.addWidget(files_count_label, 1, 2)
+
         self.outer_layout.addStretch(1)
         self.outer_layout.addSpacing(10)
 
