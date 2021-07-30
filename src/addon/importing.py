@@ -45,14 +45,20 @@ def import_media(src: Path) -> None:
     # TODO: Better reports - identical files, etc.
     def finish_import() -> None:
         mw.progress.finish()
-        print(f"{DEBUG_PREFIX} {totcnt} Media Files added")
-        tooltip(f"{totcnt} media files added.")
+        msg = f"{totcnt} media files added."
+        print(f"{DEBUG_PREFIX} {msg}")
+        tooltip(msg)
+
+    def abort_import(count: int) -> None:
+        mw.progress.finish()
+        msg = f"Aborted import. {count} / {totcnt} media files were added."
+        print(f"{DEBUG_PREFIX} {msg}")
+        tooltip(msg)
 
     def add_files(files: List[Path]) -> None:
         for file in files:
             add_media(file)
 
-    # TODO: allow canceling mid-import.
     def add_files_chunk(fut: Future, start: int) -> None:
         if fut is not None:
             fut.result()  # Check if add_files raised an error
@@ -64,6 +70,10 @@ def import_media(src: Path) -> None:
         # Last chunk was added
         if start == totcnt:
             finish_import()
+            return
+
+        if mw.progress.want_cancel():
+            abort_import(start)
             return
 
         end = start + CHUNK_SIZE
