@@ -16,7 +16,6 @@ class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
         QDialog.__init__(self, mw, Qt.Window)
         self.setWindowTitle("Import Media")
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.setMinimumWidth(500)
         self.setup_main()
         self.setup_mid()
