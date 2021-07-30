@@ -34,7 +34,7 @@ def import_media(src: Path) -> None:
 
     # 3. Make sure there isn't a naming conflict.
     name_conflicts = search_name_conflict(files_list)
-    filter_duplicate_files(files_list, name_conflicts)
+    filter_identical_files(files_list, name_conflicts)
     assert len(name_conflicts) == 0
 
     # 4. Add media files in chunk in background.
@@ -142,7 +142,7 @@ def hash_file(file: Path) -> str:
     return checksum(file.read_bytes())
 
 
-def is_duplicate_file(files: List[Path]) -> bool:
+def is_identical_file(files: List[Path]) -> bool:
     assert len(files) > 1
     file_checksum = hash_file(files[0])
     for i in range(1, len(files)):
@@ -152,11 +152,11 @@ def is_duplicate_file(files: List[Path]) -> bool:
     return True
 
 
-def filter_duplicate_files(files_list: List[Path], name_conflicts: Dict[str, List[Path]]) -> None:
+def filter_identical_files(files_list: List[Path], name_conflicts: Dict[str, List[Path]]) -> None:
     """Removes files whose content is identical from name_conflicts """
     for file_name in list(name_conflicts.keys()):
         files = name_conflicts[file_name]
-        if is_duplicate_file(files):
+        if is_identical_file(files):
             for file in name_conflicts[file_name]:
                 try:
                     files_list.remove(file)
