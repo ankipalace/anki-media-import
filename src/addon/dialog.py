@@ -42,19 +42,18 @@ class ImportDialog(QDialog):
         restoreGeom(self, f"addon-mediaimport-import")
         self.update_file_count()
 
-    def format_exts(self, ext_list: Tuple[str, ...], name: str) -> str:
+    def format_exts(self) -> str:
         exts_filter = ""
-        for ext in ext_list:
-            exts_filter += f"*.{ext} "
+        for ext_list in (aqt.editor.pics, aqt.editor.audio):
+            for ext in ext_list:
+                exts_filter += f"*.{ext} "
         image_exts = exts_filter[:-1]  # remove last whitespace
-        return f"{name} Files ({image_exts})"
+        return f"Image & Audio Files ({image_exts})"
 
     def file_dialog(self) -> QFileDialog:
         dialog = QFileDialog(self)
-        image_exts = self.format_exts(aqt.editor.pics, "Image")
-        audio_exts = self.format_exts(aqt.editor.audio, "Audio")
-        dialog.setNameFilters([image_exts, audio_exts])
-        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setNameFilter(self.format_exts())
+        dialog.setOption(QFileDialog.ShowDirsOnly, False)
         if isWin:
             # Windows directory chooser doesn't display files
             # TODO: Check whether to use native or qt file chooser
