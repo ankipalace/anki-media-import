@@ -116,7 +116,7 @@ class ImportDialog(QDialog):
         path_input = QLineEdit()
         self.path_input = path_input
         path_input.setMinimumWidth(200)
-        path_input.editingFinished.connect(self.update_file_count)
+        path_input.textEdited.connect(self.update_file_count)
         main_grid.addWidget(path_input, 0, 2)
 
         def on_browse() -> None:

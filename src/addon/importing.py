@@ -86,7 +86,6 @@ def get_list_of_files(src: Path) -> Optional[List[Path]]:
     elif src.is_dir():
         search_files(files_list, src)
     else:
-        print(f"{DEBUG_PREFIX} Invalid path: {src}")
         return None
     return files_list
 
