@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 from pathlib import Path
 import math
 
@@ -6,7 +6,7 @@ from anki.media import media_paths_from_col_path
 from anki.utils import isWin
 from aqt import mw
 from aqt.qt import *
-from aqt.utils import openFolder, openLink, restoreGeom, saveGeom
+from aqt.utils import openFolder, openLink, restoreGeom, saveGeom, tooltip
 import aqt.editor
 
 from .importing import import_media, get_list_of_files
@@ -41,6 +41,7 @@ class ImportDialog(QDialog):
         self.setup_buttons()
         restoreGeom(self, f"addon-mediaimport-import")
         self.update_file_count()
+        self.valid_path = False
 
     def format_exts(self) -> str:
         exts_filter = ""
@@ -84,17 +85,22 @@ class ImportDialog(QDialog):
         path = self.path_input.text()
         if path == "":
             self.fcount_label.setText("Input a Path")
+            self.valid_path = False
             return
         try:
             files_list = get_list_of_files(Path(path))
         except PermissionError:
             self.fcount_label.setText("Insufficient Permission")
+            self.valid_path = False
             return
+
         if files_list is None:
             self.fcount_label.setText("Invalid Path")
+            self.valid_path = False
         else:
             self.fcount_label.setText(
                 "{} Files Found".format(len(files_list)))
+            self.valid_path = True
 
     def setup(self) -> None:
         outer_layout = QVBoxLayout(self)
@@ -146,8 +152,11 @@ class ImportDialog(QDialog):
 
     def on_import(self) -> None:
         path = Path(self.path_input.text())
-        import_media(path)
-        self.close()
+        if self.valid_path:
+            import_media(path)
+            self.close()
+        else:
+            tooltip("Invalid Path", parent=self)
 
     def open_media_dir(self) -> None:
         media_dir = media_paths_from_col_path(mw.col.path)[0]
