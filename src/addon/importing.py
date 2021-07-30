@@ -1,3 +1,4 @@
+from concurrent.futures import Future
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import unicodedata
@@ -6,6 +7,7 @@ from anki.media import media_paths_from_col_path
 from anki.utils import checksum
 from aqt import mw
 from aqt.utils import tooltip
+from aqt.qt import QApplication
 import aqt.editor
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
@@ -16,15 +18,16 @@ def import_media(src: Path) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
-    TODO: add a progress bar
+    This may rename original files to remove invalid characters from file names.
     """
 
     # 1. Get the name of all media files.
+    mw.progress.start(
+        parent=mw, label="Starting import", immediate=True)
     files_list = get_list_of_files(src)
     if files_list is None:
         tooltip("Invalid Path")
         return
-    print(f"{DEBUG_PREFIX} {len(files_list)} Media Files Found")
 
     # 2. Normalize file names
     normalize_name(files_list)
@@ -34,16 +37,49 @@ def import_media(src: Path) -> None:
     filter_duplicate_files(name_conflicts)
     assert len(name_conflicts) == 0
 
-    # 4. Add the media.
-    for file in files_list:
-        add_media(file)
+    # 4. Add media files in chunk in background.
+    CHUNK_SIZE = 20
+    totcnt = len(files_list)
+    print("Media Import: Adding media")
 
-    # 5. Write output: How many added, how many not actually in notes...?
-    tooltip("{} media files added.".format(len(files_list)))
-    print(f"{DEBUG_PREFIX} import done: {len(files_list)} files")
+    # 5. Write output: How many added, how many not actually in notes...? (on_done)
+    def finish_import() -> None:
+        mw.progress.finish()
+        print(f"{DEBUG_PREFIX} {totcnt} Media Files added")
+        tooltip(f"{totcnt} media files added.")
+
+    def add_files(files: List[Path]) -> None:
+        for file in files:
+            add_media(file)
+
+    # TODO: allow canceling mid-import.
+    def add_files_chunk(fut: Future, start: int) -> None:
+        if fut is not None:
+            fut.result()  # Check if add_files raised an error
+
+        # Sometimes add_files is called before progress window is repainted
+        mw.progress.update(
+            label=f"Adding media files ({start} / {totcnt})", value=start, max=totcnt)
+
+        # Last chunk was added
+        if start == totcnt:
+            finish_import()
+            return
+
+        end = start + CHUNK_SIZE
+        if end > totcnt:
+            end = totcnt
+
+        mw.taskman.run_in_background(
+            add_files, lambda fut: add_files_chunk(fut, end),
+            args={"files": files_list[start:end]})
+
+    add_files_chunk(None, 0)
 
 
 def get_list_of_files(src: Path) -> Optional[List[Path]]:
+    """Returns list of files in src, including in its subdirectories. 
+       Returns None if src is neither file nor directory."""
     files_list: List[Path] = []
     if src.is_file():
         files_list.append(src)
@@ -56,7 +92,7 @@ def get_list_of_files(src: Path) -> Optional[List[Path]]:
 
 
 def search_files(files: List[Path], src: Path) -> None:
-    """Searches for files recursively, adding them to files"""
+    """Searches for files recursively, adding them to files. src must be a directory."""
     for path in src.iterdir():
         if path.is_file():
             if path.suffix[1:] in MEDIA_EXT:  # remove '.'
@@ -118,7 +154,8 @@ def is_duplicate_file(files: List[Path]) -> bool:
 
 
 def filter_duplicate_files(name_conflicts: Dict[str, List[Path]]) -> None:
-    for file_name in name_conflicts:
+    """Removes files whose content is identical from name_conflicts """
+    for file_name in list(name_conflicts.keys()):
         files = name_conflicts[file_name]
         if is_duplicate_file(files):
             del name_conflicts[file_name]

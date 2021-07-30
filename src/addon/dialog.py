@@ -31,7 +31,7 @@ def small_qlabel(text: str) -> QLabel:
     return label
 
 
-class ImportDialog(QDialog):  # TODO: allow selecting text from dialog
+class ImportDialog(QDialog):
     def __init__(self) -> None:
         QDialog.__init__(self, mw, Qt.Window)
         self.setWindowTitle("Import Media")
