@@ -34,19 +34,28 @@ def import_media(src: Path) -> None:
     # 2. Normalize file names
     normalize_name(files_list)
 
-    # 3. Make sure there isn't a naming conflict.
-    name_conflicts = search_name_conflict(files_list)
-    if len(name_conflicts):
-        print(name_conflicts)
-    filter_identical_files(files_list, name_conflicts)
-    assert len(name_conflicts) == 0
+    # 3. Make sure there isn't a name conflict within new files.
+    if name_conflict_exists(files_list):
+        msg = "There are multiple files with same name."
+        print(f"{DEBUG_PREFIX} msg")
+        tooltip(msg)
+        return
 
-    # 4. Add media files in chunk in background.
+    # 4. Check collection.media if there is a file with same name.
+    # TODO: Allow user to rename/overwrite file
+    name_conflicts = name_exists_in_collection(files_list)
+    if len(name_conflicts):
+        msg = "{} files have the same name as existing media files."
+        print(f"{DEBUG_PREFIX} {msg}")
+        tooltip(msg)
+        return
+
+    # 5. Add media files in chunk in background.
     CHUNK_SIZE = 5
     totcnt = len(files_list)
     print(f"{DEBUG_PREFIX} Adding media - total {totcnt} files.")
 
-    # 5. Write output: How many added, how many not actually in notes...?
+    # 6. Write output: How many added, how many not actually in notes...?
     # TODO: Better reports - identical files, etc.
     def finish_import() -> None:
         delete_temp_folder()
@@ -100,20 +109,20 @@ def get_list_of_files(src: Path) -> Optional[List[Path]]:
     if src.is_file():
         files_list.append(src)
     elif src.is_dir():
-        search_files(files_list, src)
+        search_files(files_list, src, recursive=True)
     else:
         return None
     return files_list
 
 
-def search_files(files: List[Path], src: Path) -> None:
+def search_files(files: List[Path], src: Path, recursive: bool) -> None:
     """Searches for files recursively, adding them to files. src must be a directory."""
     for path in src.iterdir():
         if path.is_file():
             if path.suffix[1:] in MEDIA_EXT:  # remove '.'
                 files.append(path)
-        elif path.is_dir():
-            search_files(files, path)
+        elif recursive and path.is_dir():
+            search_files(files, path, recursive=True)
 
 
 def normalize_name(files: List[Path]) -> None:
@@ -133,61 +142,44 @@ def delete_temp_folder() -> None:
     shutil.rmtree(str(TEMP_DIR))
 
 
-def search_name_conflict(new_files: List[Path]) -> Dict[str, List[Path]]:
-    """
-        Would be great if we could get the file names from the media.db,
-        but currently not quite easy to access it unlike collection db.
-    """
-    # 1. Search for name conflicts within new media
-    # Which can happen if the media are in different subdirectories
-    # 2. Search for name conflicts in existing media
-    existing_files: List[Path] = []
-    media_dir = Path(media_paths_from_col_path(mw.col.path)[0]).resolve()
-    search_files(existing_files, media_dir)
-
-    file_names: Dict[str, Path] = {}
-    name_conflicts: Dict[str, List[Path]] = {}
-
-    for files in (new_files, existing_files):
-        for file in files:
-            name = file.name
-            if name not in file_names:
-                file_names[name] = file
-            else:  # There may be more than 2 duplicate files
-                if name not in name_conflicts:
-                    duplicate = file_names[name]
-                    name_conflicts[name] = [duplicate]
-                name_conflicts[name].append(file)
-
-    return name_conflicts
-
-
 def hash_file(file: Path) -> str:
     return checksum(file.read_bytes())
 
 
-def is_identical_file(files: List[Path]) -> bool:
-    assert len(files) > 1
-    file_checksum = hash_file(files[0])
-    for i in range(1, len(files)):
-        file = files[i]
-        if hash_file(file) != file_checksum:
-            return False
-    return True
+def name_conflict_exists(files_list: List[Path]) -> bool:
+    """Returns True if there are different files with the same name.
+       And removes identical files from files_list. """
+    file_names: Dict[str, Path] = {}  # {file_name: file_path}
+    for file in files_list:
+        name = file.name
+        if name in file_names:
+            if hash_file(file) == hash_file(file_names[name]):
+                files_list.remove(file)
+            else:
+                return True
+        else:
+            file_names[name] = file
+    return False
 
 
-def filter_identical_files(files_list: List[Path], name_conflicts: Dict[str, List[Path]]) -> None:
-    """Removes files whose content is identical from name_conflicts """
-    # TODO: If there are identical files only in the new files, only remove one of them.
-    for file_name in list(name_conflicts.keys()):
-        files = name_conflicts[file_name]
-        if is_identical_file(files):
-            for file in name_conflicts[file_name]:
-                try:
-                    files_list.remove(file)
-                except ValueError:
-                    pass
-            del name_conflicts[file_name]
+def name_exists_in_collection(files_list: List[Path]) -> List[Path]:
+    """Returns list of files whose names conflict with existing media files.
+       And remove files if identical file exists in collection. """
+    collection_files: List[Path] = []
+    media_dir = Path(media_paths_from_col_path(mw.col.path)[0]).resolve()
+    search_files(collection_files, media_dir, recursive=False)
+    collection_file_names = [file.name for file in collection_files]
+
+    name_conflicts: List[Path] = []
+
+    for file in files_list:
+        if file.name in collection_file_names:
+            if hash_file(file) == hash_file(media_dir / file.name):
+                files_list.remove(file)
+            else:
+                name_conflicts.append(file)
+
+    return name_conflicts
 
 
 def add_media(src: Path) -> None:
