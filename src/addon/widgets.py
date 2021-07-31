@@ -72,7 +72,7 @@ class ImportDialog(QDialog):
 
         dropdown = QComboBox()
         self.filemode_dropdown = dropdown
-        options = ("Directory", "File")
+        options = ("Folder", "File")
         self.filemode_dropdown_opts = options
         for option in options:
             dropdown.addItem(option)
