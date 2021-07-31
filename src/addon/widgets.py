@@ -1,4 +1,5 @@
-from typing import List, Optional
+from concurrent.futures import Future
+from typing import Optional
 from pathlib import Path
 import math
 
@@ -6,7 +7,7 @@ from anki.media import media_paths_from_col_path
 from anki.utils import isWin
 from aqt import mw
 from aqt.qt import *
-from aqt.utils import openFolder, restoreGeom, saveGeom, tooltip, showInfo
+from aqt.utils import openFolder, restoreGeom, saveGeom, tooltip
 import aqt.editor
 
 from .importing import import_media, get_list_of_files, delete_temp_folder, ImportResult
@@ -197,18 +198,24 @@ class ImportDialog(QDialog):
             self.fcount_label.setText("Input a path")
             self.valid_path = False
             return
-        self.fcount_label.setText("Calculating number of files")
-        try:  # TODO: run this in background to avoid hanging.
-            files_list = get_list_of_files(Path(path).resolve())
-        except PermissionError:
-            self.fcount_label.setText("Insufficient permission")
-            self.valid_path = False
-            return
+        self.fcount_label.setText("Calculating number of files...")
 
-        if files_list is None:
-            self.fcount_label.setText("Invalid path")
-            self.valid_path = False
-        else:
-            self.fcount_label.setText(
-                "{} files found".format(len(files_list)))
-            self.valid_path = True
+        def on_done(fut: Future) -> None:
+            try:
+                files_list = fut.result()
+            except PermissionError:
+                self.fcount_label.setText("Insufficient permission")
+                self.valid_path = False
+                return
+
+            if files_list is None:
+                self.fcount_label.setText("Invalid path")
+                self.valid_path = False
+            else:
+                self.fcount_label.setText(
+                    "{} files found".format(len(files_list)))
+                self.valid_path = True
+
+        mw.taskman.run_in_background(
+            get_list_of_files, on_done, {"src": Path(path).resolve()}
+        )

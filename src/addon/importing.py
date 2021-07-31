@@ -23,7 +23,6 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
-    TODO: collect various import ending into one
     """
 
     logs: List[str] = []
