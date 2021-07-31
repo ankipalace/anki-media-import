@@ -1,78 +1,83 @@
 from concurrent.futures import Future
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, NamedTuple
 import unicodedata
 import shutil
 
 from anki.media import media_paths_from_col_path
 from anki.utils import checksum
 from aqt import mw
-from aqt.utils import tooltip
 import aqt.editor
 
+
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
-DEBUG_PREFIX = "Media Import:"
 TEMP_DIR = Path(__file__).resolve().parent / "TEMP"
 
 
-def import_media(src: Path) -> None:
+class ImportResult(NamedTuple):
+    logs: List[str]
+    msg: str
+    success: bool
+
+
+def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
     TODO: collect various import ending into one
     """
 
+    logs: List[str] = []
+
+    def log(msg: str, debug: bool = False) -> None:
+        print(f"Media Import: {msg}")
+        if not debug:
+            logs.append(msg)
+
     # 1. Get the name of all media files.
-    mw.progress.start(
-        parent=mw, label="Starting import", immediate=True)  # type: ignore
     files_list = get_list_of_files(src)
     if files_list is None:
-        mw.progress.finish()
-        tooltip("Invalid Path", parent=mw)
+        log(f"Error - Invalid Path: {src}")
+        result = ImportResult(logs, "Error - Invalid Path", success=False)
+        on_done(result)
         return
-    print(f"{DEBUG_PREFIX} {len(files_list)} files found.")
+    tot_cnt = len(files_list)
+    log(f"{tot_cnt} media files found.")
 
     # 2. Normalize file names
     normalize_name(files_list)
 
     # 3. Make sure there isn't a name conflict within new files.
+    prev_cnt = tot_cnt
     if name_conflict_exists(files_list):
-        msg = "There are multiple files with same name."
-        mw.progress.finish()
-        print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg, parent=mw)
+        log("There are multiple files with same filename.")
+        result = ImportResult(
+            logs, "Error - Filename conflict", success=False)
+        on_done(result)
         return
+    tot_cnt = len(files_list)
+    cnt_diff = prev_cnt - tot_cnt
+    if cnt_diff:
+        log(f"{cnt_diff} files were skipped because they are identical.")
 
     # 4. Check collection.media if there is a file with same name.
     # TODO: Allow user to rename/overwrite file
+    prev_cnt = tot_cnt
     name_conflicts = name_exists_in_collection(files_list)
+    tot_cnt = len(files_list)
     if len(name_conflicts):
-        msg = "{} files have the same name as existing media files."
-        mw.progress.finish()
-        print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg, parent=mw)
+        log(f"{len(name_conflicts)} files have the same name as existing media files.")
+        result = ImportResult(
+            logs, "Error - Filename Conflict", success=False)
+        on_done(result)
         return
+    cnt_diff = prev_cnt - tot_cnt
+    if cnt_diff:
+        log(f"{cnt_diff} files were skipped because they already exist in collection.")
 
     # 5. Add media files in chunk in background.
     CHUNK_SIZE = 5
-    totcnt = len(files_list)
-    print(f"{DEBUG_PREFIX} Adding media - total {totcnt} files.")
-
-    # 6. Write output: How many added, how many not actually in notes...?
-    # TODO: Better reports - identical files, etc.
-    def finish_import() -> None:
-        delete_temp_folder()
-        mw.progress.finish()
-        msg = f"{totcnt} media files added."
-        print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg, parent=mw)
-
-    def abort_import(count: int) -> None:
-        delete_temp_folder()
-        mw.progress.finish()
-        msg = f"Aborted import. {count} / {totcnt} media files were added."
-        print(f"{DEBUG_PREFIX} {msg}")
-        tooltip(msg, parent=mw)
+    log(f"{tot_cnt} media files will be added to collection", debug=True)
 
     def add_files(files: List[Path]) -> None:
         for file in files:
@@ -84,20 +89,26 @@ def import_media(src: Path) -> None:
 
         # Sometimes add_files is called before progress window is repainted
         mw.progress.update(
-            label=f"Adding media files ({start} / {totcnt})", value=start, max=totcnt)
+            label=f"Adding media files ({start} / {tot_cnt})", value=start, max=tot_cnt)
 
         # Last chunk was added
-        if start == totcnt:
-            finish_import()
+        if start == tot_cnt:
+            log(f"{tot_cnt} media files were imported.")
+            result = ImportResult(
+                logs, f"Imported {tot_cnt} Media Files", success=True)
+            on_done(result)
             return
 
+        # Abort import
         if mw.progress.want_cancel():
-            abort_import(start)
+            log(f"Aborted import. {start} / {tot_cnt} media files were imported.")
+            result = ImportResult(logs, "Import Aborted", success=False)
+            on_done(result)
             return
 
         end = start + CHUNK_SIZE
-        if end > totcnt:
-            end = totcnt
+        if end > tot_cnt:
+            end = tot_cnt
 
         mw.taskman.run_in_background(
             add_files, lambda fut: add_files_chunk(fut, end),
@@ -143,7 +154,8 @@ def normalize_name(files: List[Path]) -> None:
 
 
 def delete_temp_folder() -> None:
-    shutil.rmtree(str(TEMP_DIR))
+    if TEMP_DIR.is_dir():
+        shutil.rmtree(str(TEMP_DIR))
 
 
 def hash_file(file: Path) -> str:
