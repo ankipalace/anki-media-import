@@ -19,7 +19,6 @@ def import_media(src: Path) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
-    This may rename original files to remove invalid characters from file names.
     TODO: collect various import ending into one
     """
 
@@ -153,7 +152,7 @@ def hash_file(file: Path) -> str:
 
 def name_conflict_exists(files_list: List[Path]) -> bool:
     """Returns True if there are different files with the same name.
-       And removes identical files from files_list. """
+       And removes identical files from files_list so only one remains. """
     file_names: Dict[str, Path] = {}  # {file_name: file_path}
     for file in files_list:
         name = file.name
