@@ -112,7 +112,7 @@ class ImportDialog(QDialog):
             self.update_file_count()
 
     def finish_import(self, result: ImportResult) -> None:
-        msg = result.msg
+        msg = result.logs[-1]
         delete_temp_folder()
         mw.progress.finish()
         if result.success:

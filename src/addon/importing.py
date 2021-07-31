@@ -16,7 +16,6 @@ TEMP_DIR = Path(__file__).resolve().parent / "TEMP"
 
 class ImportResult(NamedTuple):
     logs: List[str]
-    msg: str
     success: bool
 
 
@@ -38,7 +37,7 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     files_list = get_list_of_files(src)
     if files_list is None:
         log(f"Error - Invalid Path: {src}")
-        result = ImportResult(logs, "Error - Invalid Path", success=False)
+        result = ImportResult(logs, success=False)
         on_done(result)
         return
     tot_cnt = len(files_list)
@@ -51,8 +50,7 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     prev_cnt = tot_cnt
     if name_conflict_exists(files_list):
         log("There are multiple files with same filename.")
-        result = ImportResult(
-            logs, "Error - Filename conflict", success=False)
+        result = ImportResult(logs, success=False)
         on_done(result)
         return
     tot_cnt = len(files_list)
@@ -67,8 +65,7 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     tot_cnt = len(files_list)
     if len(name_conflicts):
         log(f"{len(name_conflicts)} files have the same name as existing media files.")
-        result = ImportResult(
-            logs, "Error - Filename Conflict", success=False)
+        result = ImportResult(logs, success=False)
         on_done(result)
         return
     cnt_diff = prev_cnt - tot_cnt
@@ -94,15 +91,14 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
         # Last chunk was added
         if start == tot_cnt:
             log(f"{tot_cnt} media files were imported.")
-            result = ImportResult(
-                logs, f"Imported {tot_cnt} Media Files", success=True)
+            result = ImportResult(logs, success=True)
             on_done(result)
             return
 
         # Abort import
         if mw.progress.want_cancel():
-            log(f"Aborted import. {start} / {tot_cnt} media files were imported.")
-            result = ImportResult(logs, "Import Aborted", success=False)
+            log(f"Import aborted. {start} / {tot_cnt} media files were imported.")
+            result = ImportResult(logs, success=False)
             on_done(result)
             return
 
