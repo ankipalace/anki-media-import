@@ -31,6 +31,22 @@ def small_qlabel(text: str) -> QLabel:
     return label
 
 
+class ImportResultDialog(QMessageBox):
+    def __init__(self, parent: QWidget, result: ImportResult) -> None:
+        QMessageBox.__init__(self, parent)
+        if result.success:
+            title = "Import Complete"
+            self.setIcon(QMessageBox.Information)
+        else:
+            title = "Import Failed"
+            self.setIcon(QMessageBox.Critical)
+        self.setWindowTitle(title)
+        text = f"<h3><b>{title}</b></h3>{result.logs[-1]}{'&nbsp;'*5}<br>"
+        self.setText(text)
+        self.setTextFormat(Qt.RichText)
+        self.setDetailedText("\n".join(result.logs))
+
+
 class ImportDialog(QDialog):
     def __init__(self) -> None:
         QDialog.__init__(self, mw, Qt.Window)
@@ -112,14 +128,13 @@ class ImportDialog(QDialog):
             self.update_file_count()
 
     def finish_import(self, result: ImportResult) -> None:
-        msg = result.logs[-1]
         delete_temp_folder()
         mw.progress.finish()
         if result.success:
-            showInfo(msg, mw, title="Import Successful")
+            ImportResultDialog(mw, result).exec_()
             self.hide()
         else:
-            showInfo(msg, self, title="Import Failed")
+            ImportResultDialog(self, result).exec_()
 
     def on_import(self) -> None:
         path = Path(self.path_input.text()).resolve()
