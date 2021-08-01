@@ -6,9 +6,7 @@ from anki.media import media_paths_from_col_path
 from aqt import mw
 import aqt.editor
 
-from addon.pathlike.gdrive import GDriveFile
-
-from .pathlike import FileLike, PathLike, LocalPath
+from .pathlike import FileLike, PathLike, LocalPath, RequestError
 
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
@@ -32,56 +30,69 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         if not debug:
             logs.append(msg)
 
-    # 1. Get the name of all media files.
-    files_list = get_list_of_files(src)
-    if files_list is None:
-        log(f"Error - Invalid Path: {src}")
-        result = ImportResult(logs, success=False)
-        on_done(result)
-        return
-    tot_cnt = len(files_list)
-    log(f"{tot_cnt} media files found.")
+    try:
+        # 1. Get the name of all media files.
+        files_list = get_list_of_files(src)
+        if files_list is None:
+            log(f"Error - Invalid Path: {src}")
+            result = ImportResult(logs, success=False)
+            on_done(result)
+            return
+        tot_cnt = len(files_list)
+        log(f"{tot_cnt} media files found.")
 
-    # 2. Normalize file names
-    unnormalized = find_unnormalized_name(files_list)
-    if len(unnormalized):
-        log(f"{len(unnormalized)} files have invalid file names: {unnormalized}")
-        result = ImportResult(logs, success=False)
-        on_done(result)
-        return
+        # 2. Normalize file names
+        unnormalized = find_unnormalized_name(files_list)
+        if len(unnormalized):
+            log(f"{len(unnormalized)} files have invalid file names: {unnormalized}")
+            result = ImportResult(logs, success=False)
+            on_done(result)
+            return
 
         # 3. Make sure there isn't a name conflict within new files.
-    prev_cnt = tot_cnt
-    if name_conflict_exists(files_list):
-        log("There are multiple files with same filename.")
-        result = ImportResult(logs, success=False)
-        on_done(result)
-        return
-    tot_cnt = len(files_list)
-    cnt_diff = prev_cnt - tot_cnt
-    if cnt_diff:
-        log(f"{cnt_diff} files were skipped because they are identical.")
+        prev_cnt = tot_cnt
+        if name_conflict_exists(files_list):
+            log("There are multiple files with same filename.")
+            result = ImportResult(logs, success=False)
+            on_done(result)
+            return
+        tot_cnt = len(files_list)
+        cnt_diff = prev_cnt - tot_cnt
+        if cnt_diff:
+            log(f"{cnt_diff} files were skipped because they are identical.")
 
-    # 4. Check collection.media if there is a file with same name.
-    # TODO: Allow user to rename/overwrite file
-    prev_cnt = tot_cnt
-    name_conflicts = name_exists_in_collection(files_list)
-    tot_cnt = len(files_list)
-    if len(name_conflicts):
-        log(f"{len(name_conflicts)} files have the same name as existing media files.")
+        # 4. Check collection.media if there is a file with same name.
+        # TODO: Allow user to rename/overwrite file
+        prev_cnt = tot_cnt
+        name_conflicts = name_exists_in_collection(files_list)
+        tot_cnt = len(files_list)
+        if len(name_conflicts):
+            log(f"{len(name_conflicts)} files have the same name as existing media files.")
+            result = ImportResult(logs, success=False)
+            on_done(result)
+            return
+        cnt_diff = prev_cnt - tot_cnt
+        if cnt_diff:
+            log(f"{cnt_diff} files were skipped because they already exist in collection.")
+
+    except RequestError as err:
+        log(str(err))
         result = ImportResult(logs, success=False)
         on_done(result)
         return
-    cnt_diff = prev_cnt - tot_cnt
-    if cnt_diff:
-        log(f"{cnt_diff} files were skipped because they already exist in collection.")
 
     # 5. Add media files in chunk in background.
     log(f"{tot_cnt} media files will be added to collection", debug=True)
 
     def add_files(fut: Future, idx: int) -> None:
         if fut is not None:
-            fut.result()  # Check if add_files raised an error
+            try:
+                fut.result()  # Check if add_files raised an error
+            except RequestError as err:
+                log(f"{str(err)}\n{idx} / {tot_cnt} media files were added.")
+                result = ImportResult(logs, success=False)
+                on_done(result)
+                return
 
         # Sometimes add_files is called before progress window is repainted
         mw.progress.update(
@@ -96,15 +107,15 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
 
         # Abort import
         if mw.progress.want_cancel():
-            log(f"Import aborted. {idx} / {tot_cnt} media files were imported.")
+            log(f"Import aborted.\n{idx} / {tot_cnt} media files were imported.")
             result = ImportResult(logs, success=False)
             on_done(result)
             return
 
-        idx += 1
         mw.taskman.run_in_background(
             add_media, lambda fut: add_files(fut, idx),
             args={"file": files_list[idx]})
+        idx += 1
 
     add_files(None, 0)
 
@@ -180,11 +191,11 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     return name_conflicts
 
 
-def add_media(src: FileLike) -> None:  # TODO: gdrive
+def add_media(file: FileLike) -> None:  # TODO: gdrive
     """
         Tries to add media with the same basename.
         But may change the name if it overlaps with existing media.
         Therefore make sure there isn't an existing media with the same name!
     """
-    new_name = mw.col.media.write_data(src.name, src.read_bytes())
-    assert new_name == src.name  # TODO: write an error dialogue?
+    new_name = mw.col.media.write_data(file.name, file.read_bytes())
+    assert new_name == file.name  # TODO: write an error dialogue?

@@ -5,8 +5,8 @@ from aqt import mw
 from aqt.qt import *
 from requests.models import parse_url
 
-from ..pathlike import GDrivePath
-from ..importing import import_media
+from ..pathlike import GDrivePath, RequestError
+from ..importing import ImportResult, import_media
 from .base import ImportTab
 if TYPE_CHECKING:
     from .base import ImportDialog
@@ -75,7 +75,14 @@ class GDriveTab(QWidget, ImportTab):
         if self.valid_path:
             url = self.url_input.text()
             id = self.parse_url(url)
-            path = GDrivePath(id=id)
             mw.progress.start(
                 parent=mw, label="Starting import", immediate=True)
+            try:
+                path = GDrivePath(id=id)
+            except RequestError as err:
+                logs = [str(err)]
+                result = ImportResult(logs, success=False)
+                self.dialog.finish_import(result)
+                return
+
             import_media(path, self.dialog.finish_import)

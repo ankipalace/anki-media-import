@@ -17,7 +17,7 @@ class RequestError(Exception):
         self.msg = msg
 
     def __str__(self) -> str:
-        return "RequestError<{self.code}>: {self.msg}"
+        return f"RequestError<{self.code}>: {self.msg}"
 
 
 class GDrive():
@@ -80,8 +80,10 @@ class GDrivePath(PathLike):
             data = gdrive.get_metadata(id)
         self._data = data
         self._id = data["id"]
-        if data["_mimeType"] == "application/vnd.google-apps.folder":
+        if data["mimeType"] == "application/vnd.google-apps.folder":
             self._is_dir = True
+        else:
+            self._is_dir = False
 
     def is_file(self) -> bool:
         return not self._is_dir
@@ -116,7 +118,7 @@ class GDriveFile(FileLike):
         self.extension = data["fileExtension"]
         self.size = data["size"]
         self.id = self.path
-        self._md5 = data["md5"]
+        self._md5 = data["md5Checksum"]
 
     def read_bytes(self) -> bytes:
         return gdrive.download_file(self.id)
