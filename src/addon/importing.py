@@ -74,6 +74,12 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         if cnt_diff:
             log(f"{cnt_diff} files were skipped because they already exist in collection.")
 
+        if tot_cnt == 0:
+            log(f"{initial_tot_cnt} media files were imported")
+            result = ImportResult(logs, success=True)
+            on_done(result)
+            return
+
     except RequestError as err:
         log(str(err))
         result = ImportResult(logs, success=False)
