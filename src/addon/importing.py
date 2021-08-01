@@ -77,23 +77,18 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         log(f"{cnt_diff} files were skipped because they already exist in collection.")
 
     # 5. Add media files in chunk in background.
-    CHUNK_SIZE = 5
     log(f"{tot_cnt} media files will be added to collection", debug=True)
 
-    def add_files(files: List[FileLike]) -> None:
-        for file in files:
-            add_media(file)
-
-    def add_files_chunk(fut: Future, start: int) -> None:
+    def add_files(fut: Future, idx: int) -> None:
         if fut is not None:
             fut.result()  # Check if add_files raised an error
 
         # Sometimes add_files is called before progress window is repainted
         mw.progress.update(
-            label=f"Adding media files ({start} / {tot_cnt})", value=start, max=tot_cnt)
+            label=f"Adding media files ({idx} / {tot_cnt})", value=idx, max=tot_cnt)
 
-        # Last chunk was added
-        if start == tot_cnt:
+        # Last file was added
+        if idx == tot_cnt:
             log(f"{tot_cnt} media files were imported.")
             result = ImportResult(logs, success=True)
             on_done(result)
@@ -101,20 +96,17 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
 
         # Abort import
         if mw.progress.want_cancel():
-            log(f"Import aborted. {start} / {tot_cnt} media files were imported.")
+            log(f"Import aborted. {idx} / {tot_cnt} media files were imported.")
             result = ImportResult(logs, success=False)
             on_done(result)
             return
 
-        end = start + CHUNK_SIZE
-        if end > tot_cnt:
-            end = tot_cnt
-
+        idx += 1
         mw.taskman.run_in_background(
-            add_files, lambda fut: add_files_chunk(fut, end),
-            args={"files": files_list[start:end]})
+            add_media, lambda fut: add_files(fut, idx),
+            args={"file": files_list[idx]})
 
-    add_files_chunk(None, 0)
+    add_files(None, 0)
 
 
 def get_list_of_files(path: PathLike) -> Optional[List[FileLike]]:
