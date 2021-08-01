@@ -167,15 +167,19 @@ def name_conflict_exists(files_list: List[FileLike]) -> bool:
     """Returns True if there are different files with the same name.
        And removes identical files from files_list so only one remains. """
     file_names: Dict[str, FileLike] = {}  # {file_name: file_path}
-    for file in files_list:
+    identical: List[int] = []
+
+    for idx, file in enumerate(files_list):
         name = file.name
         if name in file_names:
             if file.md5 == file_names[name].md5:
-                files_list.remove(file)
+                identical.append(idx)
             else:
                 return True
         else:
             file_names[name] = file
+    for idx in sorted(identical, reverse=True):
+        files_list.pop(idx)
     return False
 
 
@@ -188,14 +192,16 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     collection_files = {file.name: file for file in collection_file_paths}
 
     name_conflicts: List[FileLike] = []
+    identical: List[int] = []
 
-    for file in files_list:
+    for idx, file in enumerate(files_list):
         if file.name in collection_files:
             if file.md5 == collection_files[file.name].md5:
-                files_list.remove(file)
+                identical.append(idx)
             else:
                 name_conflicts.append(file)
-
+    for idx in sorted(identical, reverse=True):
+        files_list.pop(idx)
     return name_conflicts
 
 
