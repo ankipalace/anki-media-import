@@ -1,3 +1,3 @@
-from .base import PathLike
-from .gdrive import GDrivePath
-from .local import LocalPath
+from .base import FileLike, PathLike
+from .gdrive import GDriveFile, GDrivePath
+from .local import LocalFile, LocalPath

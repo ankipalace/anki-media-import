@@ -6,7 +6,9 @@ from anki.media import media_paths_from_col_path
 from aqt import mw
 import aqt.editor
 
-from .pathlike import PathLike, LocalPath
+from addon.pathlike.gdrive import GDriveFile
+
+from .pathlike import FileLike, PathLike, LocalPath
 
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
@@ -78,7 +80,7 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
     CHUNK_SIZE = 5
     log(f"{tot_cnt} media files will be added to collection", debug=True)
 
-    def add_files(files: List[PathLike]) -> None:
+    def add_files(files: List[FileLike]) -> None:
         for file in files:
             add_media(file)
 
@@ -115,30 +117,31 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
     add_files_chunk(None, 0)
 
 
-def get_list_of_files(src: PathLike) -> Optional[List[PathLike]]:
+def get_list_of_files(path: PathLike) -> Optional[List[FileLike]]:
     """Returns list of files in src, including in its subdirectories. 
        Returns None if src is neither file nor directory."""
-    files_list: List[PathLike] = []
-    if src.is_file():
-        files_list.append(src)
-    elif src.is_dir():
-        search_files(files_list, src, recursive=True)
+    files_list: List[FileLike] = []
+    if path.is_file():
+        files_list.append(path.to_file())
+    elif path.is_dir():
+        search_files(files_list, path, recursive=True)
     else:
         return None
     return files_list
 
 
-def search_files(files: List[PathLike], src: PathLike, recursive: bool) -> None:
+def search_files(files: List[FileLike], src: PathLike, recursive: bool) -> None:
     """Searches for files recursively, adding them to files. src must be a directory."""
     for path in src.iterdir():
         if path.is_file():
-            if path.extension.lower() in MEDIA_EXT:  # remove '.'
-                files.append(path)
+            file = path.to_file()
+            if file.extension.lower() in MEDIA_EXT:  # remove '.'
+                files.append(file)
         elif recursive and path.is_dir():
             search_files(files, path, recursive=True)
 
 
-def find_unnormalized_name(files: List[PathLike]) -> List[PathLike]:
+def find_unnormalized_name(files: List[FileLike]) -> List[FileLike]:
     """Returns list of files whose names are not normalized."""
     unnormalized = []
     for idx, file in enumerate(files):
@@ -149,10 +152,10 @@ def find_unnormalized_name(files: List[PathLike]) -> List[PathLike]:
     return unnormalized
 
 
-def name_conflict_exists(files_list: List[PathLike]) -> bool:
+def name_conflict_exists(files_list: List[FileLike]) -> bool:
     """Returns True if there are different files with the same name.
        And removes identical files from files_list so only one remains. """
-    file_names: Dict[str, PathLike] = {}  # {file_name: file_path}
+    file_names: Dict[str, FileLike] = {}  # {file_name: file_path}
     for file in files_list:
         name = file.name
         if name in file_names:
@@ -165,15 +168,15 @@ def name_conflict_exists(files_list: List[PathLike]) -> bool:
     return False
 
 
-def name_exists_in_collection(files_list: List[PathLike]) -> List[PathLike]:
+def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     """Returns list of files whose names conflict with existing media files.
        And remove files if identical file exists in collection. """
-    collection_file_paths: List[PathLike] = []
+    collection_file_paths: List[FileLike] = []
     media_dir = LocalPath(media_paths_from_col_path(mw.col.path)[0])
     search_files(collection_file_paths, media_dir, recursive=False)
     collection_files = {file.name: file for file in collection_file_paths}
 
-    name_conflicts: List[PathLike] = []
+    name_conflicts: List[FileLike] = []
 
     for file in files_list:
         if file.name in collection_files:
@@ -185,11 +188,11 @@ def name_exists_in_collection(files_list: List[PathLike]) -> List[PathLike]:
     return name_conflicts
 
 
-def add_media(src: PathLike) -> None:  # TODO: gdrive
+def add_media(src: FileLike) -> None:  # TODO: gdrive
     """
         Tries to add media with the same basename.
         But may change the name if it overlaps with existing media.
         Therefore make sure there isn't an existing media with the same name!
     """
-    new_name = mw.col.media.write_data(src.name, src.data)
+    new_name = mw.col.media.write_data(src.name, src.read_bytes())
     assert new_name == src.name  # TODO: write an error dialogue?

@@ -1,8 +1,8 @@
 from hashlib import md5
-from typing import Generator, Union
+from typing import Generator, Union, Optional
 from pathlib import Path
 
-from .base import PathLike
+from .base import FileLike, PathLike
 
 
 class LocalPath(PathLike):
@@ -24,19 +24,32 @@ class LocalPath(PathLike):
         for path in self.path.iterdir():
             yield LocalPath(path)
 
-    @property
-    def name(self) -> str:
-        return self.path.name
+    def to_file(self) -> "LocalFile":
+        return LocalFile(self.path)
 
-    @property
-    def data(self) -> bytes:
-        return self.path.read_bytes()
 
-    @property
-    def extension(self) -> str:
-        """Removes initial '.' """
-        return self.path.suffix[1:]
+class LocalFile(FileLike):
+    key: str  # == str(path)
+    name: str
+    extension: str
+    size: float
+
+    _md5: Optional[str]
+    path: Path
+
+    def __init__(self, path: Path):
+        self.key = str(path)
+        self.name = path.name
+        self.extension = path.suffix[1:]
+        self.size = path.stat().st_size
+        self.path = path
+        self._md5 = None
 
     @property
     def md5(self) -> str:
-        return md5(self.data).hexdigest()
+        if not self._md5:  # Cache result
+            self._md5 = md5(self.read_bytes()).hexdigest()
+        return self._md5
+
+    def read_bytes(self) -> bytes:
+        return self.path.read_bytes()

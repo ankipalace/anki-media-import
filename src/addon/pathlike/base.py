@@ -16,24 +16,22 @@ class PathLike(ABC):
     def iterdir(self) -> Iterable["PathLike"]:
         pass
 
-    @property
     @abstractmethod
-    def name(self) -> str:
-        """Returns file name, including its file extension. """
+    def to_file(self) -> "FileLike":
         pass
 
-    @property
-    @abstractmethod
-    def data(self) -> bytes:
-        pass
 
-    @property
-    @abstractmethod
-    def extension(self) -> str:
-        """Returns file extension. eg. 'png' """
-        pass
+class FileLike(ABC):
+    key: str  # A string that can identify the file
+    name: str
+    extension: str
+    size: float
 
     @property
     @abstractmethod
     def md5(self) -> str:
+        pass
+
+    @abstractmethod
+    def read_bytes(self) -> bytes:
         pass
