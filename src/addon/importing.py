@@ -30,13 +30,16 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         if not debug:
             logs.append(msg)
 
+    def finish_import(msg: str, success: bool) -> None:
+        log(msg)
+        result = ImportResult(logs, success)
+        on_done(result)
+
     try:
         # 1. Get the name of all media files.
         files_list = get_list_of_files(src)
         if files_list is None:
-            log(f"Error - Invalid Path: {src}")
-            result = ImportResult(logs, success=False)
-            on_done(result)
+            finish_import(f"Error - Invalid Path: {src}", success=False)
             return
         initial_tot_cnt = len(files_list)
         log(f"{initial_tot_cnt} media files found.")
@@ -44,16 +47,14 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         # 2. Normalize file names
         unnormalized = find_unnormalized_name(files_list)
         if len(unnormalized):
-            log(f"{len(unnormalized)} files have invalid file names: {unnormalized}")
-            result = ImportResult(logs, success=False)
-            on_done(result)
+            finish_import(f"{len(unnormalized)} files have invalid file names: {unnormalized}",
+                          success=False)
             return
 
         # 3. Make sure there isn't a name conflict within new files.
         if name_conflict_exists(files_list):
-            log("There are multiple files with same filename.")
-            result = ImportResult(logs, success=False)
-            on_done(result)
+            finish_import("There are multiple files with same filename.",
+                          success=False)
             return
         tot_cnt = len(files_list)
         cnt_diff = initial_tot_cnt - tot_cnt
@@ -66,24 +67,20 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         name_conflicts = name_exists_in_collection(files_list)
         tot_cnt = len(files_list)
         if len(name_conflicts):
-            log(f"{len(name_conflicts)} files have the same name as existing media files.")
-            result = ImportResult(logs, success=False)
-            on_done(result)
+            finish_import(f"{len(name_conflicts)} files have the same name as existing media files.",
+                          success=False)
             return
         cnt_diff = prev_cnt - tot_cnt
         if cnt_diff:
             log(f"{cnt_diff} files were skipped because they already exist in collection.")
 
         if tot_cnt == 0:
-            log(f"{initial_tot_cnt} media files were imported")
-            result = ImportResult(logs, success=True)
-            on_done(result)
+            finish_import(
+                f"{initial_tot_cnt} media files were imported", success=True)
             return
 
     except RequestError as err:
-        log(str(err))
-        result = ImportResult(logs, success=False)
-        on_done(result)
+        finish_import(str(err), success=False)
         return
 
     # 5. Add media files in chunk in background.
@@ -96,9 +93,8 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
             try:
                 fut.result()  # Check if add_files raised an error
             except RequestError as err:
-                log(f"{str(err)}\n{done_cnt} / {initial_tot_cnt} media files were added.")
-                result = ImportResult(logs, success=False)
-                on_done(result)
+                finish_import(f"{str(err)}\n{done_cnt} / {initial_tot_cnt} media files were added.",
+                              success=False)
                 return
 
         # Sometimes add_files is called before progress window is repainted
@@ -108,16 +104,14 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
 
         # Last file was added
         if idx == tot_cnt:
-            log(f"{initial_tot_cnt} media files were imported.")
-            result = ImportResult(logs, success=True)
-            on_done(result)
+            finish_import(
+                f"{initial_tot_cnt} media files were imported.", success=True)
             return
 
         # Abort import
         if mw.progress.want_cancel():
-            log(f"Import aborted.\n{done_cnt} / {initial_tot_cnt} media files were imported.")
-            result = ImportResult(logs, success=False)
-            on_done(result)
+            finish_import(f"Import aborted.\n{done_cnt} / {initial_tot_cnt} media files were imported.",
+                          success=False)
             return
 
         mw.taskman.run_in_background(
