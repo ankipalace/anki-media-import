@@ -150,5 +150,5 @@ class LocalTab(QWidget, ImportTab):
                 self.valid_path = True
 
         mw.taskman.run_in_background(
-            get_list_of_files, on_done, {"src": LocalPath(path)}
+            get_list_of_files, on_done, {"path": LocalPath(path)}
         )
