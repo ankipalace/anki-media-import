@@ -1,17 +1,15 @@
 from concurrent.futures import Future
-from pathlib import Path
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, NamedTuple
 import unicodedata
-import shutil
 
 from anki.media import media_paths_from_col_path
-from anki.utils import checksum
 from aqt import mw
 import aqt.editor
 
+from .pathlike import PathLike, LocalPath
+
 
 MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
-TEMP_DIR = Path(__file__).resolve().parent / "TEMP"
 
 
 class ImportResult(NamedTuple):
@@ -19,7 +17,7 @@ class ImportResult(NamedTuple):
     success: bool
 
 
-def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
+def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
@@ -43,9 +41,14 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     log(f"{tot_cnt} media files found.")
 
     # 2. Normalize file names
-    normalize_name(files_list)
+    unnormalized = find_unnormalized_name(files_list)
+    if len(unnormalized):
+        log(f"{len(unnormalized)} files have invalid file names: {unnormalized}")
+        result = ImportResult(logs, success=False)
+        on_done(result)
+        return
 
-    # 3. Make sure there isn't a name conflict within new files.
+        # 3. Make sure there isn't a name conflict within new files.
     prev_cnt = tot_cnt
     if name_conflict_exists(files_list):
         log("There are multiple files with same filename.")
@@ -75,7 +78,7 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     CHUNK_SIZE = 5
     log(f"{tot_cnt} media files will be added to collection", debug=True)
 
-    def add_files(files: List[Path]) -> None:
+    def add_files(files: List[PathLike]) -> None:
         for file in files:
             add_media(file)
 
@@ -112,10 +115,10 @@ def import_media(src: Path, on_done: Callable[[ImportResult], None]) -> None:
     add_files_chunk(None, 0)
 
 
-def get_list_of_files(src: Path) -> Optional[List[Path]]:
+def get_list_of_files(src: PathLike) -> Optional[List[PathLike]]:
     """Returns list of files in src, including in its subdirectories. 
        Returns None if src is neither file nor directory."""
-    files_list: List[Path] = []
+    files_list: List[PathLike] = []
     if src.is_file():
         files_list.append(src)
     elif src.is_dir():
@@ -125,46 +128,36 @@ def get_list_of_files(src: Path) -> Optional[List[Path]]:
     return files_list
 
 
-def search_files(files: List[Path], src: Path, recursive: bool) -> None:
+def search_files(files: List[PathLike], src: PathLike, recursive: bool) -> None:
     """Searches for files recursively, adding them to files. src must be a directory."""
     for path in src.iterdir():
+        print(path.path)
         if path.is_file():
-            if path.suffix[1:].lower() in MEDIA_EXT:  # remove '.'
+            if path.extension.lower() in MEDIA_EXT:  # remove '.'
                 files.append(path)
         elif recursive and path.is_dir():
             search_files(files, path, recursive=True)
 
 
-def normalize_name(files: List[Path]) -> None:
-    """If file name is not normalized, copy the file to a temp dir and rename it."""
-    TEMP_DIR.mkdir(exist_ok=True)
-
+def find_unnormalized_name(files: List[PathLike]) -> List[PathLike]:
+    """Returns list of files whose names are not normalized."""
+    unnormalized = []
     for idx, file in enumerate(files):
         name = file.name
         normalized_name = unicodedata.normalize("NFC", name)
         if name != normalized_name:
-            new_file = TEMP_DIR / normalized_name
-            shutil.copy(str(file), str(new_file))
-            files[idx] = new_file
+            unnormalized.append(file)
+    return unnormalized
 
 
-def delete_temp_folder() -> None:
-    if TEMP_DIR.is_dir():
-        shutil.rmtree(str(TEMP_DIR))
-
-
-def hash_file(file: Path) -> str:
-    return checksum(file.read_bytes())
-
-
-def name_conflict_exists(files_list: List[Path]) -> bool:
+def name_conflict_exists(files_list: List[PathLike]) -> bool:
     """Returns True if there are different files with the same name.
        And removes identical files from files_list so only one remains. """
-    file_names: Dict[str, Path] = {}  # {file_name: file_path}
+    file_names: Dict[str, PathLike] = {}  # {file_name: file_path}
     for file in files_list:
         name = file.name
         if name in file_names:
-            if hash_file(file) == hash_file(file_names[name]):
+            if file.md5 == file_names[name].md5:
                 files_list.remove(file)
             else:
                 return True
@@ -173,19 +166,19 @@ def name_conflict_exists(files_list: List[Path]) -> bool:
     return False
 
 
-def name_exists_in_collection(files_list: List[Path]) -> List[Path]:
+def name_exists_in_collection(files_list: List[PathLike]) -> List[PathLike]:
     """Returns list of files whose names conflict with existing media files.
        And remove files if identical file exists in collection. """
-    collection_files: List[Path] = []
-    media_dir = Path(media_paths_from_col_path(mw.col.path)[0]).resolve()
-    search_files(collection_files, media_dir, recursive=False)
-    collection_file_names = [file.name for file in collection_files]
+    collection_file_paths: List[PathLike] = []
+    media_dir = LocalPath(media_paths_from_col_path(mw.col.path)[0])
+    search_files(collection_file_paths, media_dir, recursive=False)
+    collection_files = {file.name: file for file in collection_file_paths}
 
-    name_conflicts: List[Path] = []
+    name_conflicts: List[PathLike] = []
 
     for file in files_list:
-        if file.name in collection_file_names:
-            if hash_file(file) == hash_file(media_dir / file.name):
+        if file.name in collection_files:
+            if file.md5 == collection_files[file.name].md5:
                 files_list.remove(file)
             else:
                 name_conflicts.append(file)
@@ -193,11 +186,11 @@ def name_exists_in_collection(files_list: List[Path]) -> List[Path]:
     return name_conflicts
 
 
-def add_media(src: Path) -> None:
+def add_media(src: PathLike) -> None:  # TODO: gdrive
     """
         Tries to add media with the same basename.
         But may change the name if it overlaps with existing media.
         Therefore make sure there isn't an existing media with the same name!
     """
-    new_name = mw.col.media.add_file(str(src))
-    assert new_name == src.name
+    new_name = mw.col.media.write_data(src.name, src.data)
+    assert new_name == src.name  # TODO: write an error dialogue?

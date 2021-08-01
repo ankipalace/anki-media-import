@@ -10,7 +10,8 @@ from aqt.qt import *
 from aqt.utils import openFolder, restoreGeom, saveGeom, tooltip
 import aqt.editor
 
-from .importing import import_media, get_list_of_files, delete_temp_folder, ImportResult
+from .importing import import_media, get_list_of_files, ImportResult
+from .pathlike import LocalPath
 
 
 def qlabel(text: str) -> QLabel:
@@ -129,7 +130,6 @@ class ImportDialog(QDialog):
             self.update_file_count()
 
     def finish_import(self, result: ImportResult) -> None:
-        delete_temp_folder()
         mw.progress.finish()
         if result.success:
             ImportResultDialog(mw, result).exec_()
@@ -138,7 +138,7 @@ class ImportDialog(QDialog):
             ImportResultDialog(self, result).exec_()
 
     def on_import(self) -> None:
-        path = Path(self.path_input.text()).resolve()
+        path = LocalPath(self.path_input.text())
         if self.valid_path:
             mw.progress.start(
                 parent=mw, label="Starting import", immediate=True)
@@ -218,5 +218,5 @@ class ImportDialog(QDialog):
                 self.valid_path = True
 
         mw.taskman.run_in_background(
-            get_list_of_files, on_done, {"src": Path(path).resolve()}
+            get_list_of_files, on_done, {"src": LocalPath(path)}
         )
