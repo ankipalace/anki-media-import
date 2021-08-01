@@ -25,10 +25,9 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
 
     logs: List[str] = []
 
-    def log(msg: str, debug: bool = False) -> None:
+    def log(msg: str) -> None:
         print(f"Media Import: {msg}")
-        if not debug:
-            logs.append(msg)
+        logs.append(msg)
 
     def finish_import(msg: str, success: bool) -> None:
         log(msg)
@@ -84,7 +83,7 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
         return
 
     # 5. Add media files in chunk in background.
-    log(f"{tot_cnt} media files will be added to collection", debug=True)
+    log(f"{tot_cnt} media files will be processed.")
     diff = initial_tot_cnt - tot_cnt
 
     def add_files(fut: Future, idx: int) -> None:
