@@ -1,75 +1,38 @@
 from concurrent.futures import Future
-from typing import Optional
-from pathlib import Path
-import math
+from typing import Optional, TYPE_CHECKING
 
-from anki.media import media_paths_from_col_path
 from anki.utils import isWin
 from aqt import mw
 from aqt.qt import *
-from aqt.utils import openFolder, restoreGeom, saveGeom, tooltip
+from aqt.utils import tooltip
 import aqt.editor
 
-from .importing import import_media, get_list_of_files, ImportResult
-from .pathlike import LocalPath
+from ..importing import import_media, get_list_of_files
+from ..pathlike import LocalPath
+from .base import ImportTab
+if TYPE_CHECKING:
+    from .base import ImportDialog
 
 
-def qlabel(text: str) -> QLabel:
-    label = QLabel(text)
-    label.setTextInteractionFlags(Qt.TextBrowserInteraction)
-    return label
+class LocalTab(QWidget, ImportTab):
 
-
-def small_qlabel(text: str) -> QLabel:
-    label = qlabel(text)
-    font = label.font()
-    if font.pointSize() != -1:
-        font_size = math.floor(font.pointSize() * 0.92)
-        font.setPointSize(font_size)
-    else:
-        font_size = math.floor(font.pixelSize() * 0.92)
-        font.setPixelSize(font_size)
-    label.setFont(font)
-    return label
-
-
-class ImportResultDialog(QMessageBox):
-    def __init__(self, parent: QWidget, result: ImportResult) -> None:
-        QMessageBox.__init__(self, parent)
-        if result.success:
-            title = "Import Complete"
-            self.setIcon(QMessageBox.Information)
-        else:
-            title = "Import Failed"
-            self.setIcon(QMessageBox.Critical)
-        self.setWindowTitle(title)
-        text = f"<h3><b>{title}</b></h3>{result.logs[-1]}{'&nbsp;'*5}<br>"
-        self.setText(text)
-        self.setTextFormat(Qt.RichText)
-        self.setDetailedText("\n".join(result.logs))
-
-
-class ImportDialog(QDialog):
-    def __init__(self) -> None:
-        QDialog.__init__(self, mw, Qt.Window)
-        self.setWindowTitle("Import Media")
-        self.setMinimumWidth(500)
-        self.setup()
-        self.setup_buttons()
-        restoreGeom(self, f"addon-mediaimport-import")
-        self.update_file_count()
+    def __init__(self, dialog: "ImportDialog"):
+        QWidget.__init__(self, dialog)
+        self.dialog = dialog
         self.valid_path = False
+        self.setup()
+        self.update_file_count()
 
     def setup(self) -> None:
-        outer_layout = QVBoxLayout(self)
-        self.outer_layout = outer_layout
-        self.setLayout(outer_layout)
+        self.main_layout = QVBoxLayout(self)
+        main_layout = self.main_layout
+        self.setLayout(self.main_layout)
 
         main_grid = QGridLayout(self)
 
-        outer_layout.addLayout(main_grid)
+        main_layout.addLayout(main_grid)
 
-        import_text = qlabel("Import")
+        import_text = self.qlabel("Import")
         main_grid.addWidget(import_text, 0, 0)
 
         dropdown = QComboBox()
@@ -92,29 +55,20 @@ class ImportDialog(QDialog):
         browse_button.clicked.connect(self.on_browse)
         main_grid.addWidget(browse_button, 0, 3)
 
-        fcount_label = small_qlabel("")
+        fcount_label = self.small_qlabel("")
         self.fcount_label = fcount_label
         main_grid.addWidget(fcount_label, 1, 2)
 
-        self.outer_layout.addStretch(1)
-        self.outer_layout.addSpacing(10)
+        main_layout.addStretch(1)
 
-    def setup_buttons(self) -> None:
-        button_row = QHBoxLayout()
-        self.outer_layout.addLayout(button_row)
-
-        media_dir_btn = QPushButton("Open Media Folder")
-        media_dir_btn.clicked.connect(self.open_media_dir)
-        button_row.addWidget(media_dir_btn)
-
-        button_row.addStretch(1)
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.close)
-        button_row.addWidget(cancel_btn)
-
-        import_btn = QPushButton("Import")
-        import_btn.clicked.connect(self.on_import)
-        button_row.addWidget(import_btn)
+    def on_import(self) -> None:
+        path = LocalPath(self.path_input.text())
+        if self.valid_path:
+            mw.progress.start(
+                parent=mw, label="Starting import", immediate=True)
+            import_media(path, self.dialog.finish_import)
+        else:
+            tooltip("Invalid Path", parent=self)  # type: ignore
 
     def on_browse(self) -> None:
         dropdown = self.filemode_dropdown
@@ -129,29 +83,7 @@ class ImportDialog(QDialog):
             self.path_input.setText(path)
             self.update_file_count()
 
-    def finish_import(self, result: ImportResult) -> None:
-        mw.progress.finish()
-        if result.success:
-            ImportResultDialog(mw, result).exec_()
-            self.hide()
-        else:
-            ImportResultDialog(self, result).exec_()
-
-    def on_import(self) -> None:
-        path = LocalPath(self.path_input.text())
-        if self.valid_path:
-            mw.progress.start(
-                parent=mw, label="Starting import", immediate=True)
-            import_media(path, self.finish_import)
-        else:
-            tooltip("Invalid Path", parent=self)  # type: ignore
-
-    def open_media_dir(self) -> None:
-        media_dir = media_paths_from_col_path(mw.col.path)[0]
-        openFolder(media_dir)
-
-    def closeEvent(self, evt: QCloseEvent) -> None:
-        saveGeom(self, f"addon-mediaImport-import")
+    # File Browse Dialogs
 
     def file_name_filter(self) -> str:
         exts_filter = ""

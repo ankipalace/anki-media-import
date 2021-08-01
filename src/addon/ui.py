@@ -4,7 +4,7 @@ from aqt import mw
 from aqt.utils import openLink
 from aqt.qt import *
 
-from .widgets import ImportDialog
+from .dialog import ImportDialog
 
 
 import_dialog = None

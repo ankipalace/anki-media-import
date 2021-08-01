@@ -131,7 +131,6 @@ def get_list_of_files(src: PathLike) -> Optional[List[PathLike]]:
 def search_files(files: List[PathLike], src: PathLike, recursive: bool) -> None:
     """Searches for files recursively, adding them to files. src must be a directory."""
     for path in src.iterdir():
-        print(path.path)
         if path.is_file():
             if path.extension.lower() in MEDIA_EXT:  # remove '.'
                 files.append(path)
