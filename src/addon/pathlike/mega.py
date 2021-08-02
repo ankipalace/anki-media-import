@@ -6,11 +6,11 @@ import re
 
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
-from mega.errors import RequestError  # type: ignore
+from mega.errors import RequestError as MegaReqError  # type: ignore
 from mega.crypto import a32_to_str, base64_to_a32, base64_url_decode, decrypt_attr, decrypt_key  # type: ignore
 
-
 from .base import RootPath, FileLike
+from .errors import MalformedURLError, RootNotFoundError, RequestError
 
 """
 Mega node (file/folder) datatype:
@@ -62,14 +62,15 @@ class Mega:
         except IndexError:
             int_resp = None
         if int_resp is not None:
-            raise RequestError(int_resp)
+            raise MegaReqError(int_resp)
         return json_resp[0]
 
     def download_file(self, root_folder: str, file_id: str, file_key: Tuple[int, ...]) -> bytes:
+        print(root_folder, file_id)
         file_data = self.api_request({
             'a': 'g',
             'g': 1,
-            'p': file_id
+            'n': file_id
         }, root_folder)
 
         k = self.xor_key(file_key)
@@ -79,7 +80,7 @@ class Mega:
         # inaccessible also in the official also in the official web app.
         # Strangely, files can come back later.
         if 'g' not in file_data:
-            raise RequestError('File not accessible anymore')
+            raise MegaReqError('File not accessible anymore')
         file_url = file_data['g']
         encrypted_file = requests.get(file_url).content
 
@@ -96,10 +97,9 @@ class Mega:
         if m:
             if url.count("/folder/") > 1:
                 # TODO: subfolder of a shared folder
-                return None
+                return MalformedURLError()
             return (m.group(1), m.group(2))
-
-        return None
+        raise MalformedURLError()
 
     def xor_key(self, key: Tuple[int, ...]) -> Tuple[int, ...]:
         return (key[0] ^ key[4], key[1] ^ key[5], key[2] ^ key[6], key[3] ^ key[7])
@@ -127,7 +127,7 @@ class MegaRoot(RootPath):
                 continue
             if not recursive and node["p"] != root_id:
                 continue
-            encrypted_key = base64_to_a32(node["k"])
+            encrypted_key = base64_to_a32(node["k"].split(":")[1])
             key = decrypt_key(encrypted_key, self.shared_key)
             k = mega.xor_key(key)
             attrs = decrypt_attr(base64_url_decode(node["a"]), k)
