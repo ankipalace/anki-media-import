@@ -1,5 +1,6 @@
 from concurrent.futures import Future
-from typing import TYPE_CHECKING, Optional, Type
+from typing import TYPE_CHECKING, Optional
+from urllib3.exceptions import HTTPError  # mypy: ignore
 import math
 
 from aqt import mw
@@ -128,6 +129,9 @@ class ImportTab(QWidget):
                 print(err)
                 self.rootfile = None
                 self.sub_text.setText(f"ERROR: {err.msg}")
+            except HTTPError:
+                self.rootfile = None
+                self.sub_text.setText("Network error")
 
         mw.taskman.run_in_background(
             self.create_root_file, on_done, {"url": url})
