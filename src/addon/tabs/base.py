@@ -1,30 +1,133 @@
-from typing import TYPE_CHECKING
+from concurrent.futures import Future
+from typing import TYPE_CHECKING, Optional, Type
 import math
 
+from aqt import mw
 from aqt.qt import *
+from aqt.utils import tooltip
+
+from ..pathlike import RootPath, RequestError, RootNotFoundError, MalformedURLError
+from ..importing import import_media
 
 if TYPE_CHECKING:
     from ..dialog import ImportDialog
 
 
-class ImportTab:
+def qlabel(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+    return label
 
-    def on_import(self) -> None:
+
+def small_qlabel(text: str) -> QLabel:
+    label = qlabel(text)
+    font = label.font()
+    if font.pointSize() != -1:
+        font_size = math.floor(font.pointSize() * 0.92)
+        font.setPointSize(font_size)
+    else:
+        font_size = math.floor(font.pixelSize() * 0.92)
+        font.setPixelSize(font_size)
+    label.setFont(font)
+    return label
+
+
+class ImportTab(QWidget):
+
+    # Messages that differ by tab. Define them in subclasses.
+    button_text: str
+    import_not_valid_tooltip: str
+
+    empty_input_msg: str
+    while_create_rootfile_msg: str
+    valid_input_msg: str
+    malformed_url_msg: str
+    root_not_found_msg: str
+
+    def __init__(self, dialog: "ImportDialog"):
+        QWidget.__init__(self, dialog)
+        self.dialog = dialog
+        self.valid_path = False
+        self.rootfile: Optional[RootPath] = None
+        self.setup()
+
+    def define_texts(self) -> None:
         pass
 
-    def qlabel(self, text: str) -> QLabel:
-        label = QLabel(text)
-        label.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        return label
+    def setup(self) -> None:
+        self.main_layout = QVBoxLayout(self)
+        main_layout = self.main_layout
+        self.setLayout(self.main_layout)
 
-    def small_qlabel(self, text: str) -> QLabel:
-        label = self.qlabel(text)
-        font = label.font()
-        if font.pointSize() != -1:
-            font_size = math.floor(font.pointSize() * 0.92)
-            font.setPointSize(font_size)
-        else:
-            font_size = math.floor(font.pixelSize() * 0.92)
-            font.setPixelSize(font_size)
-        label.setFont(font)
-        return label
+        main_grid = QGridLayout(self)
+        main_layout.addLayout(main_grid)
+
+        import_label = qlabel("Import:")
+        main_grid.addWidget(import_label, 0, 0)
+
+        path_input = QLineEdit()
+        self.path_input = path_input
+        path_input.setMinimumWidth(200)
+        path_input.textEdited.connect(self.on_input_change)
+        main_grid.addWidget(path_input, 0, 2)
+
+        btn = QPushButton(self.button_text)
+        self.btn = btn
+        btn.clicked.connect(self.on_btn)
+        main_grid.addWidget(btn, 0, 3)
+
+        sub_text = small_qlabel(self.empty_input_msg)
+        self.sub_text = sub_text
+        main_grid.addWidget(sub_text, 1, 2)
+
+        main_layout.addStretch(1)
+
+    def on_import(self) -> None:
+        if not self.valid_path:
+            tooltip(self.import_not_valid_tooltip)
+            return
+        mw.progress.start(
+            parent=mw, label="Starting import", immediate=True)
+        import_media(self.rootfile, self.dialog.finish_import)
+
+    def on_input_change(self) -> None:
+        return
+
+    def on_btn(self) -> None:
+        return
+
+    def create_root_file(self, url: str) -> RootPath:
+        pass
+
+    def update_root_file(self) -> None:
+        self.valid_path = False
+        url = self.path_input.text()
+        if url == "":
+            self.sub_text.setText(self.empty_input_msg)
+            return
+
+        self.sub_text.setText(self.while_create_rootfile_msg)
+
+        def on_done(fut: Future) -> None:
+            # TODO: add PermissionError, IsAFileError. Write how many files to import.
+            # TODO: And handle requests error. eg. NewConnectionError
+            curr_url = self.path_input.text()
+            if not url == curr_url:
+                return
+            try:
+                self.rootfile = fut.result()
+                self.valid_path = True
+                self.sub_text.setText(self.valid_input_msg)
+            except MalformedURLError:
+                self.rootfile = None
+                self.sub_text.setText(self.malformed_url_msg)
+            except RootNotFoundError:
+                self.rootfile = None
+                self.sub_text.setText(self.root_not_found_msg)
+            except RequestError as err:
+                print(err)
+                self.rootfile = None
+                self.sub_text.setText(f"ERROR: {err.msg}")
+
+        mw.taskman.run_in_background(
+            self.create_root_file, on_done, {"url": url})

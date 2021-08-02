@@ -1,4 +1,3 @@
-from concurrent.futures import Future
 from typing import Optional, TYPE_CHECKING
 
 from anki.utils import isWin
@@ -14,52 +13,20 @@ if TYPE_CHECKING:
     from .base import ImportDialog
 
 
-class LocalTab(QWidget, ImportTab):
+class LocalTab(ImportTab):
 
     def __init__(self, dialog: "ImportDialog"):
-        QWidget.__init__(self, dialog)
-        self.dialog = dialog
-        self.valid_path = False
-        self.setup()
-        self.update_file_count()
+        self.define_texts()
+        ImportTab.__init__(self, dialog)
 
-    def setup(self) -> None:
-        self.main_layout = QVBoxLayout(self)
-        main_layout = self.main_layout
-        self.setLayout(self.main_layout)
-
-        main_grid = QGridLayout(self)
-
-        main_layout.addLayout(main_grid)
-
-        import_text = self.qlabel("Import")
-        main_grid.addWidget(import_text, 0, 0)
-
-        dropdown = QComboBox()
-        self.filemode_dropdown = dropdown
-        options = ("Folder", "File")
-        self.filemode_dropdown_opts = options
-        for option in options:
-            dropdown.addItem(option)
-        dropdown.setCurrentIndex(0)
-        main_grid.addWidget(dropdown, 0, 1)
-        self.import_dropdown = dropdown
-
-        path_input = QLineEdit()
-        self.path_input = path_input
-        path_input.setMinimumWidth(200)
-        path_input.textEdited.connect(self.update_file_count)
-        main_grid.addWidget(path_input, 0, 2)
-
-        browse_button = QPushButton("Browse")
-        browse_button.clicked.connect(self.on_browse)
-        main_grid.addWidget(browse_button, 0, 3)
-
-        fcount_label = self.small_qlabel("")
-        self.fcount_label = fcount_label
-        main_grid.addWidget(fcount_label, 1, 2)
-
-        main_layout.addStretch(1)
+    def define_texts(self) -> None:
+        self.button_text = "Browse"
+        self.import_not_valid_tooltip = "Check if your path is correct"
+        self.empty_input_msg = "Input a path"
+        self.while_create_rootfile_msg = "Calculating number of files..."
+        self.valid_input_msg = "Valid Path"
+        self.malformed_url_msg = "Invalid Path"
+        self.root_not_found_msg = "Folder not found"
 
     def on_import(self) -> None:
         path = LocalRoot(self.path_input.text())
@@ -70,21 +37,13 @@ class LocalTab(QWidget, ImportTab):
         else:
             tooltip("Invalid Path", parent=self)  # type: ignore
 
-    def on_browse(self) -> None:
-        dropdown = self.filemode_dropdown
-        options = self.filemode_dropdown_opts
-        if dropdown.currentText() == options[0]:  # Directory
-            path = self.get_directory()
-        elif dropdown.currentText() == options[1]:  # File
-            path = self.get_file()
-        else:
-            raise Exception("Import Media: What happened to the dropdown?")
+    def on_btn(self) -> None:
+        path = self.get_directory()
         if path is not None:
             self.path_input.setText(path)
-            self.update_file_count()
+            self.update_root_file()
 
-    # File Browse Dialogs
-
+    # File Browse Dialog
     def file_name_filter(self) -> str:
         exts_filter = ""
         for ext_list in (aqt.editor.pics, aqt.editor.audio):
@@ -113,40 +72,3 @@ class LocalTab(QWidget, ImportTab):
             return path
         else:
             return None
-
-    def get_file(self) -> Optional[str]:
-        dialog = self.file_dialog()
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        if dialog.exec_():
-            assert len(dialog.selectedFiles()) == 1
-            path = dialog.selectedFiles()[0]
-            return path
-        else:
-            return None
-
-    def update_file_count(self) -> None:
-        self.valid_path = False
-        path = self.path_input.text()
-        if path == "":
-            self.fcount_label.setText("Input a path")
-            return
-        self.fcount_label.setText("Calculating number of files...")
-
-        def on_done(fut: Future) -> None:
-            if self.path_input.text() != path:
-                # Text many have changed during long calculation
-                return
-            try:
-                files_list = fut.result()
-            except PermissionError:
-                self.fcount_label.setText("Insufficient permission")
-                return
-
-            if files_list is None:
-                self.fcount_label.setText("Invalid path")
-            else:
-                self.fcount_label.setText(
-                    "{} files found".format(len(files_list)))
-                self.valid_path = True
-        lp = LocalRoot(path)
-        mw.taskman.run_in_background(lp.list_files, on_done)
