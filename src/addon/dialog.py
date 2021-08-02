@@ -4,7 +4,7 @@ from aqt.qt import *
 from aqt.utils import openFolder, restoreGeom, saveGeom
 
 from .importing import ImportResult
-from .tabs import ImportTab, LocalTab, GDriveTab
+from .tabs import ImportTab, LocalTab, GDriveTab, MegaTab
 
 
 class ImportResultDialog(QMessageBox):
@@ -48,6 +48,8 @@ class ImportDialog(QDialog):
         main_tab.addTab(self.local_tab, "Local Files")
         self.gdrive_tab = GDriveTab(self)
         main_tab.addTab(self.gdrive_tab, "Google Drive")
+        self.mega_tab = MegaTab(self)
+        main_tab.addTab(self.mega_tab, "Mega")
 
     def setup_buttons(self) -> None:
         button_row = QHBoxLayout()
