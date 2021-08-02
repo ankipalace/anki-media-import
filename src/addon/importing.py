@@ -118,7 +118,7 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
     """Returns list of files whose names are not normalized."""
     unnormalized = []
-    for idx, file in enumerate(files):
+    for file in files:
         name = file.name
         normalized_name = unicodedata.normalize("NFC", name)
         if name != normalized_name:
@@ -159,10 +159,8 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     for idx, file in enumerate(files_list):
         if file.name in collection_files:
             if file.is_identical(collection_files[file.name]):
-                print("identical")
                 identical.append(idx)
             else:
-                print("not identical")
                 name_conflicts.append(file)
     for idx in sorted(identical, reverse=True):
         files_list.pop(idx)
