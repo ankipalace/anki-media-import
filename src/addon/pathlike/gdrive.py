@@ -103,7 +103,7 @@ class GDriveRoot(RootPath):
             if gdrive.is_folder(path):
                 if recursive:
                     self.search_files(files, path["id"], recursive=True)
-            elif self.is_media_ext(path["extension"]):
+            elif self.is_media_ext(path["fileExtension"]):
                 file = GDriveFile(path)
                 files.append(file)
 
