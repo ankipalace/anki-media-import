@@ -1,9 +1,10 @@
 from typing import List
-import os
 import requests
-
+import re
+import os
 
 from .base import FileLike, RootPath
+from .errors import MalformedURLError, RootNotFoundError, RequestError
 
 # TODO: Handle network errors, api errors, invalid id, etc.
 # TODO: (don't) handle google docs file
@@ -12,17 +13,10 @@ from .base import FileLike, RootPath
 API_KEY = os.environ['GOOGLE_DRIVE_API_KEY']
 
 
-class RequestError(Exception):
-    def __init__(self, code: int, msg: str):
-        super().__init__()
-        self.code = code
-        self.msg = msg
-
-    def __str__(self) -> str:
-        return f"RequestError<{self.code}>: {self.msg}"
-
-
 class GDrive():
+    REGEXP = r"drive.google.com/drive/folders/([^?]*)(?:\?|$)"
+    URL_PATTERN = re.compile(REGEXP)
+
     BASE_URL = "https://www.googleapis.com/drive/v3/files"
     FIELDS_STR = ','.join(["id", "name", "md5Checksum",
                            "mimeType", "fileExtension", "size"])
@@ -56,17 +50,29 @@ class GDrive():
             return res
 
         # Error occured!
-        body = res.json()["error"]
-        code = body["code"]
-        errors = body["errors"]
-        if errors:
-            message = "".join([err["message"] for err in errors])
-        else:
-            message = body["message"]
-        raise RequestError(code, message)
+        try:
+            body = res.json()["error"]
+            code = body["code"]
+            errors = body["errors"]
+            if errors:
+                message = "".join([err["message"] for err in errors])
+            else:
+                message = body["message"]
+            if code == 404:
+                raise RootNotFoundError()
+            raise RequestError(code, message)
+        finally:
+            raise RequestError(-1, res.text)
 
     def is_folder(self, pathdata: dict) -> bool:
         return pathdata["mimeType"] == "application/vnd.google-apps.folder"
+
+    def parse_url(self, url: str) -> str:
+        """ Format: https://drive.google.com/drive/folders/{gdrive_id}?params """
+        m = re.search(self.URL_PATTERN, url)
+        if m:
+            return m.group(1)
+        raise MalformedURLError()
 
 
 gdrive = GDrive()
@@ -75,13 +81,9 @@ gdrive = GDrive()
 class GDriveRoot(RootPath):
     id: str
 
-    def __init__(self, data: dict = {}, id: str = "") -> None:
-        if not data:
-            if not id:
-                raise ValueError(
-                    "Either data or id should be passed when initializing GDrivePath.")
-            data = gdrive.get_metadata(id)
-        self.id = data["id"]
+    def __init__(self, url: str) -> None:
+        self.id = gdrive.parse_url(url)
+        data = gdrive.get_metadata(self.id)
 
     def list_files(self, recursive: bool) -> List["FileLike"]:
         files: List["FileLike"] = []

@@ -1,21 +1,16 @@
+from concurrent.futures import Future
 from typing import Optional, TYPE_CHECKING
 import re
 
 from aqt import mw
 from aqt.qt import *
-from requests.models import parse_url
+from aqt.utils import showInfo
 
-from addon.pathlike.gdrive import GDrive
-
-from ..pathlike import GDriveRoot, RequestError
+from ..pathlike import GDriveRoot, RequestError, RootNotFoundError, MalformedURLError
 from ..importing import ImportResult, import_media
 from .base import ImportTab
 if TYPE_CHECKING:
     from .base import ImportDialog
-
-
-REGEXP = r"drive.google.com/drive/folders/([^?]*)(?:\?|$)"
-URL_PATTERN = re.compile(REGEXP)
 
 
 class GDriveTab(QWidget, ImportTab):
@@ -24,6 +19,7 @@ class GDriveTab(QWidget, ImportTab):
         QWidget.__init__(self, dialog)
         self.dialog = dialog
         self.valid_path = False
+        self.rootfile: Optional[GDriveRoot] = None
         self.setup()
         self.update_sub_text()
 
@@ -51,12 +47,8 @@ class GDriveTab(QWidget, ImportTab):
 
         main_layout.addStretch(1)
 
-    def parse_url(self, url: str) -> Optional[str]:
-        """ Format: https://drive.google.com/drive/folders/{gdrive_id}?params """
-        m = re.search(URL_PATTERN, url)
-        if m:
-            return m.group(1)
-        return None
+    def create_root_file(self, url: str) -> GDriveRoot:
+        return GDriveRoot(url)
 
     def update_sub_text(self) -> None:
         self.valid_path = False
@@ -66,25 +58,37 @@ class GDriveTab(QWidget, ImportTab):
                 "Input a url to a Google Drive shared folder.")
             return
 
-        id = self.parse_url(url)
-        if id:
-            self.valid_path = True
-            self.sub_text.setText("Valid url")
-        else:
-            self.sub_text.setText("Invalid url")
+        self.url_input.setText("Checking if url is valid...")
+
+        def update_root_file(fut: Future) -> None:
+            curr_url = self.url_input.text()
+            if not url == curr_url:
+                return
+            try:
+                self.rootfile = fut.result()
+                self.valid_path = True
+                self.sub_text.setText("Valid url")
+            except MalformedURLError:
+                mw.progress.finish()
+                self.sub_text.setText("Invalid url")
+            except RootNotFoundError:
+                mw.progress.finish()
+                self.sub_text.setText("Folder not found")
+            except RequestError as err:
+                print(err)
+                self.sub_text.setText(f"ERROR: {err.msg}")
+
+        mw.taskman.run_in_background(
+            self.create_root_file, update_root_file, {"url": url})
 
     def on_import(self) -> None:
         if self.valid_path:
-            url = self.url_input.text()
-            id = self.parse_url(url)
             mw.progress.start(
-                parent=mw, label="Starting import", immediate=True)
+                parent=mw, label="Starting import")
             try:
-                path = GDriveRoot(id=id)
+                import_media(self.rootfile, self.dialog.finish_import)
             except RequestError as err:
                 logs = [str(err)]
                 result = ImportResult(logs, success=False)
                 self.dialog.finish_import(result)
                 return
-
-            import_media(path, self.dialog.finish_import)
