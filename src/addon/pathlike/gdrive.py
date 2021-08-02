@@ -112,7 +112,7 @@ class GDriveFile(FileLike):
     key: str  # == id
     name: str
     extension: str
-    size: float
+    size: int
 
     _md5: str
     id: str
@@ -124,7 +124,7 @@ class GDriveFile(FileLike):
         self.path = data["id"]
         self.name = data["name"]
         self.extension = data["fileExtension"]
-        self.size = data["size"]
+        self.size = int(data["size"])
         self.id = self.path
         self._md5 = data["md5Checksum"]
 
