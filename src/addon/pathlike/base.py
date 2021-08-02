@@ -1,37 +1,38 @@
 from abc import ABC, abstractmethod
-from typing import Iterable
+from typing import Any, List, Tuple
+
+import aqt.editor
 
 
-class PathLike(ABC):
+MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
+
+
+class RootPath(ABC):
 
     @abstractmethod
-    def is_file(self) -> bool:
+    def __init__(self, *args: Any, **kwargs: Any):
+        """Raises an Exception if the path is not valid."""
         pass
 
-    @abstractmethod
-    def is_dir(self) -> bool:
-        pass
+    def is_media_ext(self, extension: str) -> bool:
+        return extension.lower() in MEDIA_EXT
 
     @abstractmethod
-    def iterdir(self) -> Iterable["PathLike"]:
-        pass
-
-    @abstractmethod
-    def to_file(self) -> "FileLike":
+    def list_files(self, recursive: bool) -> List["FileLike"]:
         pass
 
 
 class FileLike(ABC):
-    key: str  # A string that can identify the file
+    id: str  # A string that can identify the file
     name: str
     extension: str
     size: float
 
-    @property
-    @abstractmethod
-    def md5(self) -> str:
-        pass
-
     @abstractmethod
     def read_bytes(self) -> bytes:
+        pass
+
+    def is_identical(self, file: "FileLike") -> bool:
+        """Returns True if its contents seems the same. 
+        Does not check if the names are identical."""
         pass

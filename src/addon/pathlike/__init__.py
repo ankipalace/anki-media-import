@@ -1,3 +1,3 @@
-from .base import FileLike, PathLike
-from .gdrive import GDriveFile, GDrivePath, RequestError
-from .local import LocalFile, LocalPath
+from .base import FileLike, RootPath
+from .gdrive import GDriveFile, GDriveRoot, RequestError
+from .local import LocalFile, LocalRoot

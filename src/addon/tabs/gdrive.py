@@ -5,7 +5,9 @@ from aqt import mw
 from aqt.qt import *
 from requests.models import parse_url
 
-from ..pathlike import GDrivePath, RequestError
+from addon.pathlike.gdrive import GDrive
+
+from ..pathlike import GDriveRoot, RequestError
 from ..importing import ImportResult, import_media
 from .base import ImportTab
 if TYPE_CHECKING:
@@ -78,7 +80,7 @@ class GDriveTab(QWidget, ImportTab):
             mw.progress.start(
                 parent=mw, label="Starting import", immediate=True)
             try:
-                path = GDrivePath(id=id)
+                path = GDriveRoot(id=id)
             except RequestError as err:
                 logs = [str(err)]
                 result = ImportResult(logs, success=False)

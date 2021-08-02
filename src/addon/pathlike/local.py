@@ -1,11 +1,11 @@
 from hashlib import md5
-from typing import Generator, Union, Optional
+from typing import List, Union, Optional
 from pathlib import Path
 
-from .base import FileLike, PathLike
+from .base import RootPath, FileLike
 
 
-class LocalPath(PathLike):
+class LocalRoot(RootPath):
     path: Path
 
     def __init__(self, path: Union[str, Path]) -> None:
@@ -14,18 +14,18 @@ class LocalPath(PathLike):
         else:
             self.path = path
 
-    def is_file(self) -> bool:
-        return self.path.is_file()
+    def list_files(self, recursive: bool) -> List["FileLike"]:
+        files: List["FileLike"] = []
+        self.search_files(files, self.path, recursive)
+        return files
 
-    def is_dir(self) -> bool:
-        return self.path.is_dir()
-
-    def iterdir(self) -> Generator["LocalPath", None, None]:
-        for path in self.path.iterdir():
-            yield LocalPath(path)
-
-    def to_file(self) -> "LocalFile":
-        return LocalFile(self.path)
+    def search_files(self, files: List["FileLike"], src: Path, recursive: bool) -> None:
+        for path in src.iterdir():
+            if path.is_file():
+                if len(path.suffix) > 1 and self.is_media_ext(path.suffix[1:]):
+                    files.append(LocalFile(path))
+            elif recursive and path.is_dir():
+                self.search_files(files, path, recursive=True)
 
 
 class LocalFile(FileLike):
@@ -53,3 +53,9 @@ class LocalFile(FileLike):
 
     def read_bytes(self) -> bytes:
         return self.path.read_bytes()
+
+    def is_identical(self, file: FileLike) -> bool:
+        try:
+            return file.size == self.size and file.md5 == self.md5  # type: ignore
+        except AttributeError:
+            return file.size == self.size

@@ -1,15 +1,11 @@
 from concurrent.futures import Future
-from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, NamedTuple
+from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple
 import unicodedata
 
 from anki.media import media_paths_from_col_path
 from aqt import mw
-import aqt.editor
 
-from .pathlike import FileLike, PathLike, LocalPath, RequestError
-
-
-MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
+from .pathlike import FileLike, RootPath, LocalRoot, RequestError
 
 
 class ImportResult(NamedTuple):
@@ -17,7 +13,7 @@ class ImportResult(NamedTuple):
     success: bool
 
 
-def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None:
+def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
     """
     Import media from a directory, and its subdirectories. 
     (Or import a specific file.)
@@ -36,10 +32,7 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
 
     try:
         # 1. Get the name of all media files.
-        files_list = get_list_of_files(src)
-        if files_list is None:
-            finish_import(f"Error - Invalid Path: {src}", success=False)
-            return
+        files_list = src.list_files(recursive=True)
         initial_tot_cnt = len(files_list)
         log(f"{initial_tot_cnt} media files found.")
 
@@ -121,31 +114,7 @@ def import_media(src: PathLike, on_done: Callable[[ImportResult], None]) -> None
     add_files(None, 0)
 
 
-def get_list_of_files(path: PathLike) -> Optional[List[FileLike]]:
-    """Returns list of files in src, including in its subdirectories. 
-       Returns None if src is neither file nor directory."""
-    files_list: List[FileLike] = []
-    if path.is_file():
-        files_list.append(path.to_file())
-    elif path.is_dir():
-        search_files(files_list, path, recursive=True)
-    else:
-        return None
-    return files_list
-
-
-def search_files(files: List[FileLike], src: PathLike, recursive: bool) -> None:
-    """Searches for files recursively, adding them to files. src must be a directory."""
-    for path in src.iterdir():
-        if path.is_file():
-            file = path.to_file()
-            if file.extension.lower() in MEDIA_EXT:  # remove '.'
-                files.append(file)
-        elif recursive and path.is_dir():
-            search_files(files, path, recursive=True)
-
-
-def find_unnormalized_name(files: List[FileLike]) -> List[FileLike]:
+def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
     """Returns list of files whose names are not normalized."""
     unnormalized = []
     for idx, file in enumerate(files):
@@ -165,7 +134,7 @@ def name_conflict_exists(files_list: List[FileLike]) -> bool:
     for idx, file in enumerate(files_list):
         name = file.name
         if name in file_names:
-            if file.md5 == file_names[name].md5:
+            if file.is_identical(file_names[name]):
                 identical.append(idx)
             else:
                 return True
@@ -179,9 +148,8 @@ def name_conflict_exists(files_list: List[FileLike]) -> bool:
 def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     """Returns list of files whose names conflict with existing media files.
        And remove files if identical file exists in collection. """
-    collection_file_paths: List[FileLike] = []
-    media_dir = LocalPath(media_paths_from_col_path(mw.col.path)[0])
-    search_files(collection_file_paths, media_dir, recursive=False)
+    media_dir = LocalRoot(media_paths_from_col_path(mw.col.path)[0])
+    collection_file_paths = media_dir.list_files(recursive=False)
     collection_files = {file.name: file for file in collection_file_paths}
 
     name_conflicts: List[FileLike] = []
@@ -189,7 +157,7 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
 
     for idx, file in enumerate(files_list):
         if file.name in collection_files:
-            if file.md5 == collection_files[file.name].md5:
+            if file.is_identical(collection_files[file.name]):
                 identical.append(idx)
             else:
                 name_conflicts.append(file)

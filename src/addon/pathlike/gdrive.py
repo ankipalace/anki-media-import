@@ -2,10 +2,12 @@ from typing import List
 import os
 import requests
 
-from .base import FileLike, PathLike
+
+from .base import FileLike, RootPath
 
 # TODO: Handle network errors, api errors, invalid id, etc.
-
+# TODO: (don't) handle google docs file
+# TODO: package api key into the addon
 
 API_KEY = os.environ['GOOGLE_DRIVE_API_KEY']
 
@@ -63,14 +65,15 @@ class GDrive():
             message = body["message"]
         raise RequestError(code, message)
 
+    def is_folder(self, pathdata: dict) -> bool:
+        return pathdata["mimeType"] == "application/vnd.google-apps.folder"
+
 
 gdrive = GDrive()
 
 
-class GDrivePath(PathLike):
-    _data: dict
-    _id: str
-    _is_dir: bool
+class GDriveRoot(RootPath):
+    id: str
 
     def __init__(self, data: dict = {}, id: str = "") -> None:
         if not data:
@@ -78,26 +81,24 @@ class GDrivePath(PathLike):
                 raise ValueError(
                     "Either data or id should be passed when initializing GDrivePath.")
             data = gdrive.get_metadata(id)
-        self._data = data
-        self._id = data["id"]
-        if data["mimeType"] == "application/vnd.google-apps.folder":
-            self._is_dir = True
-        else:
-            self._is_dir = False
+        self.id = data["id"]
 
-    def is_file(self) -> bool:
-        return not self._is_dir
+    def list_files(self, recursive: bool) -> List["FileLike"]:
+        files: List["FileLike"] = []
+        self.search_files(files, self.id, recursive)
+        return files
 
-    def is_dir(self) -> bool:
-        return self._is_dir
-
-    def iterdir(self) -> List["GDrivePath"]:
-        res = gdrive.list_paths(self._id)
-        files = res["files"]
-        return [GDrivePath(data=file) for file in files]
-
-    def to_file(self) -> "GDriveFile":
-        return GDriveFile(self._data)
+    def search_files(self, files: List["FileLike"], id: str, recursive: bool) -> None:
+        # TODO: only list files with appropriate mime type
+        res = gdrive.list_paths(id)
+        paths = res["files"]
+        for path in paths:
+            if gdrive.is_folder(path):
+                if recursive:
+                    self.search_files(files, path["id"], recursive=True)
+            elif self.is_media_ext(path["extension"]):
+                file = GDriveFile(path)
+                files.append(file)
 
 
 class GDriveFile(FileLike):
@@ -126,3 +127,9 @@ class GDriveFile(FileLike):
     @property
     def md5(self) -> str:
         return self._md5
+
+    def is_identical(self, file: "FileLike") -> bool:
+        try:  # Calculating md5 is slow for local file.
+            return file.size == self.size and file.md5 == self.md5  # type: ignore
+        except AttributeError:
+            return file.size == self.size

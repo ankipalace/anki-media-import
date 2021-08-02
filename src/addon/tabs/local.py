@@ -7,8 +7,8 @@ from aqt.qt import *
 from aqt.utils import tooltip
 import aqt.editor
 
-from ..importing import import_media, get_list_of_files
-from ..pathlike import LocalPath
+from ..importing import import_media
+from ..pathlike import LocalRoot
 from .base import ImportTab
 if TYPE_CHECKING:
     from .base import ImportDialog
@@ -62,7 +62,7 @@ class LocalTab(QWidget, ImportTab):
         main_layout.addStretch(1)
 
     def on_import(self) -> None:
-        path = LocalPath(self.path_input.text())
+        path = LocalRoot(self.path_input.text())
         if self.valid_path:
             mw.progress.start(
                 parent=mw, label="Starting import", immediate=True)
@@ -148,7 +148,5 @@ class LocalTab(QWidget, ImportTab):
                 self.fcount_label.setText(
                     "{} files found".format(len(files_list)))
                 self.valid_path = True
-
-        mw.taskman.run_in_background(
-            get_list_of_files, on_done, {"path": LocalPath(path)}
-        )
+        lp = LocalRoot(path)
+        mw.taskman.run_in_background(lp.list_files, on_done)
