@@ -6,8 +6,8 @@ import re
 
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
-from mega.errors import RequestError as MegaReqError  # type: ignore
-from mega.crypto import a32_to_str, base64_to_a32, base64_url_decode, decrypt_attr, decrypt_key  # type: ignore
+from mega.errors import RequestError as MegaReqError
+from mega.crypto import a32_to_str, base64_to_a32, base64_url_decode, decrypt_attr, decrypt_key
 
 from .base import RootPath, FileLike
 from .errors import MalformedURLError, RootNotFoundError, RequestError
@@ -97,7 +97,7 @@ class Mega:
         if m:
             if url.count("/folder/") > 1:
                 # TODO: subfolder of a shared folder
-                return MalformedURLError()
+                raise MalformedURLError()
             return (m.group(1), m.group(2))
         raise MalformedURLError()
 
