@@ -11,9 +11,13 @@ from .errors import MalformedURLError, RootNotFoundError, RequestError
 # TODO: package api key into the addon
 
 try:
-    API_KEY = os.environ['GOOGLE_DRIVE_API_KEY']
-except:
-    API_KEY = None
+    from ..google_api_key import get_google_api_key  # type: ignore
+    API_KEY = get_google_api_key()
+except:  # Not production?
+    try:
+        API_KEY = os.environ['GOOGLE_API_KEY']
+    except:
+        API_KEY = None
 
 
 class GDrive():

@@ -34,6 +34,9 @@ jobs:
         with:
           message: Bump Version to v${{ github.event.inputs.version }}
           tag: ${{ github.event.inputs.version }}
+      
+      - name: Bundle google api key
+        run: python ./release/api_obsfucate.py "${{ secrets.GOOGLE_API_KEY }}"
           
       - name: Create ankiaddon file
         run: cd src/addon ; zip -r ../../media_import_v${{ github.event.inputs.version }}.ankiaddon * ; cd ../../
