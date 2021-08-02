@@ -1,6 +1,6 @@
 from concurrent.futures import Future
 from typing import TYPE_CHECKING, Optional
-from urllib3.exceptions import HTTPError  # mypy: ignore
+from urllib3.exceptions import HTTPError  # type: ignore
 import math
 
 from aqt import mw
