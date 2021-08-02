@@ -10,7 +10,10 @@ from .errors import MalformedURLError, RootNotFoundError, RequestError
 # TODO: (don't) handle google docs file
 # TODO: package api key into the addon
 
-API_KEY = os.environ['GOOGLE_DRIVE_API_KEY']
+try:
+    API_KEY = os.environ['GOOGLE_DRIVE_API_KEY']
+except:
+    API_KEY = None
 
 
 class GDrive():
@@ -82,6 +85,8 @@ class GDriveRoot(RootPath):
     id: str
 
     def __init__(self, url: str) -> None:
+        if not API_KEY:
+            raise Exception("No API Key Found!")
         self.id = gdrive.parse_url(url)
         data = gdrive.get_metadata(self.id)
 
