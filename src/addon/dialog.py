@@ -17,7 +17,11 @@ class ImportResultDialog(QMessageBox):
             title = "Import Failed"
             self.setIcon(QMessageBox.Critical)
         self.setWindowTitle(title)
-        text = f"<h3><b>{title}</b></h3>{result.logs[-1]}{'&nbsp;'*5}<br>"
+        details = result.logs[-1]
+        if len(details) < 50:
+            # Workaround - setMinimumWidth doesn't work on QMessageBox.
+            details += "&nbsp;" * (50 - len(details))
+        text = f"<h3><b>{title}</b></h3>{details}<br>"
         self.setText(text)
         self.setTextFormat(Qt.RichText)
         self.setDetailedText("\n".join(result.logs))
