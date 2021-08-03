@@ -18,10 +18,6 @@ class RootPath(ABC):
     def has_media_ext(self, extension: str) -> bool:
         return extension.lower() in MEDIA_EXT
 
-    @abstractmethod
-    def list_files(self, recursive: bool) -> List["FileLike"]:
-        pass
-
 
 class FileLike(ABC):
     id: str  # A string that can identify the file

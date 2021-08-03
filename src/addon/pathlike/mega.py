@@ -29,9 +29,22 @@ ts: int - timestamp
 class Mega:
     def __init__(self) -> None:
         self.sequence_num = random.randint(0, 0xFFFFFFFF)
-        self.REGEXP = r"https?://mega.(?:io|nz|co\.nz)/(folder|file)/([0-z-_]+)#([0-z-_]+)"
-        # TODO: accept old style links
-        self.URL_PATTERN = re.compile(self.REGEXP)
+        self.REGEXP = {
+            "file": [
+                r"mega.(?:io|nz|co\.nz)/file/[0-z-_]+#[0-z-_]+",
+                r"mega.(?:io|nz|co\.nz)/#![0-z-_]+[!#][0-z-_]+",
+                r"mega.(?:io|nz|co\.nz)/folder/[0-z-_]+#[0-z-_]+(?:/file/[0-z-_]+)+",
+                r"mega.(?:io|nz|co\.nz)/#F![0-z-_]+[!#][0-z-_]+(?:/file/[0-z-_]+)+"
+            ],
+            "folder": [
+                r"mega.(?:io|nz|co\.nz)/folder/([0-z-_]+)#([0-z-_]+)(?:/folder/([0-z-_]+))*",
+                r"mega.(?:io|nz|co\.nz)/#F!([0-z-_]+)[!#]([0-z-_]+)(?:/folder/([0-z-_]+))*"
+            ]
+        }
+        self.URL_PATTERNS: Dict[str, list] = {"file": [], "folder": []}
+        for type in self.REGEXP:
+            for regexp in self.REGEXP[type]:
+                self.URL_PATTERNS[type].append(re.compile(regexp))
 
     def api_request(self, data: Union[dict, list], root_folder: Optional[str]) -> dict:
         params: Dict[str, Any] = {
@@ -67,7 +80,6 @@ class Mega:
         return json_resp[0]
 
     def download_file(self, root_folder: str, file_id: str, file_key: Tuple[int, ...]) -> bytes:
-        print(root_folder, file_id)
         file_data = self.api_request({
             'a': 'g',
             'g': 1,
@@ -107,24 +119,32 @@ class Mega:
                 raise RequestError(e.code, e.message)
         return nodes
 
-    def parse_url(self, url: str) -> Optional[Tuple[str, str]]:
-        "Returns (id, key) if valid. If not returns None."
-        m = re.search(self.URL_PATTERN, url)
+    def parse_url(self, url: str) -> Tuple[str, str, Optional[str]]:
+        "Returns (public_handle, key, id) if valid. If not returns None. If not subfolder, id=None. "
+        def get_m(patterns: list) -> Optional[re.Match]:
+            for pattern in patterns:
+                m = re.search(pattern, url)
+                if m:
+                    return m
+            return None
+        m = get_m(self.URL_PATTERNS["file"])
+        if m:  # The order between checking file and folder should not be reversed
+            raise IsAFileError()
+        m = get_m(self.URL_PATTERNS["folder"])
         if not m:
             raise MalformedURLError()
-        if m.group(1) == "file":
-            raise IsAFileError()
-        if url.count("/folder/") > 1:
-            # TODO: subfolder of a shared folder
-            raise MalformedURLError()
-        id = m.group(2)
-        key = m.group(3)
-        if len(id) != 8:
-            raise MalformedURLError()
-        if len(key) != 22:
+        matches = m.groups()
+        public_handle = matches[0]
+        key = matches[1]
+        if len(matches) > 2:
+            id = matches[-1]
+        else:
+            id = None
+
+        if (id and len(id) != 8) or len(public_handle) != 8 or len(key) != 22:
             raise MalformedURLError()
 
-        return (id, key)
+        return (public_handle, key, id)
 
     def xor_key(self, key: Tuple[int, ...]) -> Tuple[int, ...]:
         return (key[0] ^ key[4], key[1] ^ key[5], key[2] ^ key[6], key[3] ^ key[7])
@@ -134,24 +154,35 @@ mega = Mega()
 
 
 class MegaRoot(RootPath):
-    id: str
-    shared_key: str
     files: List["FileLike"]
 
-    def __init__(self, url: str) -> None:
-        (id, key) = mega.parse_url(url)
-        self.id = id
-        self.shared_key = base64_to_a32(key)
-        self.files = self.list_files(recursive=True)
+    public_handle: str
+    shared_key: str
+    id: Optional[str]
 
-    def list_files(self, recursive: bool = True) -> List[FileLike]:
-        nodes = mega.list_files(self.id)
-        files: List[FileLike] = []
-        root_id = nodes[0]["h"]
+    def __init__(self, url: str) -> None:
+        (public_handle, key, id) = mega.parse_url(url)
+        self.public_handle = public_handle
+        self.shared_key = base64_to_a32(key)
+        self.id = id
+        self.search_files(recursive=True)
+
+    def search_files(self, recursive: bool = True) -> None:
+        nodes = mega.list_files(self.public_handle)
+        if self.id:
+            root_id = self.id
+        else:
+            root_id = nodes[0]["h"]
+        self.files = []
+        self._search_files(nodes, root_id, recursive)
+
+    def _search_files(self, nodes: List[Dict[str, Any]], id: str, recursive: bool) -> None:
         for node in nodes:
-            if node["t"] != 0:  # 1: folder, 2-3: Trash can, etc.
+            if node["p"] != id:  # Node is not in this folder 'id'
                 continue
-            if not recursive and node["p"] != root_id:
+            if node["t"] == 1:  # Is folder
+                self._search_files(nodes, node["h"], recursive)
+            if node["t"] != 0:  # Not a file. Special node.
                 continue
             encrypted_key = base64_to_a32(node["k"].split(":")[1])
             key = decrypt_key(encrypted_key, self.shared_key)
@@ -165,8 +196,7 @@ class MegaRoot(RootPath):
                 continue
             file = MegaFile(root=self, id=node["h"], key=key,
                             name=attrs["n"], ext=ext, size=node["s"])
-            files.append(file)
-        return files
+            self.files.append(file)
 
 
 class MegaFile(FileLike):
@@ -187,7 +217,7 @@ class MegaFile(FileLike):
         self.size = size
 
     def read_bytes(self) -> bytes:
-        return mega.download_file(self.root.id, self.id, self.key)
+        return mega.download_file(self.root.public_handle, self.id, self.key)
 
     def is_identical(self, file: FileLike) -> bool:
         return file.size == self.size
