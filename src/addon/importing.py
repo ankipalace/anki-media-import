@@ -118,6 +118,10 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
                 error_cnt += 1
                 log("-"*12 + "\n" + str(err) + "\n" + "-"*12)
                 if error_cnt < MAX_ERRORS:
+                    if files_cnt.left < 10:
+                        log(f"{files_cnt.left} files were not imported.")
+                        for file in files_list:
+                            log(file.name)
                     finish_import(f"{files_cnt.left} / {files_cnt.tot} media files were added.",
                                   success=False)
                     return
