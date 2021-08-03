@@ -1,5 +1,5 @@
 from concurrent.futures import Future
-from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple
+from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple, Optional
 import unicodedata
 
 from anki.media import media_paths_from_col_path
@@ -104,15 +104,22 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
 
     # 5. Add media files in chunk in background.
     log(f"{files_cnt.curr} media files will be processed.")
+    MAX_ERRORS = 5
+    error_cnt = 0  # Count of errors in succession
 
-    def add_next_file(fut: Future) -> None:
+    def add_next_file(fut: Optional[Future], file: Optional[FileLike]) -> None:
         if fut is not None:
             try:
                 fut.result()  # Check if add_media raised an error
+                error_cnt = 0
             except AddonError as err:
-                finish_import(f"{str(err)}\n{files_cnt.left} / {files_cnt.tot} media files were added.",
-                              success=False)
-                return
+                error_cnt += 1
+                if error_cnt < MAX_ERRORS:
+                    finish_import(f"{str(err)}\n{files_cnt.left} / {files_cnt.tot} media files were added.",
+                                  success=False)
+                    return
+                else:
+                    files_list.append(file)
 
         mw.progress.update(
             label=f"Adding media files ({files_cnt.left} / {files_cnt.tot})",
@@ -129,12 +136,12 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
             finish_import(f"Import aborted.\n{files_cnt.left} / {files_cnt.tot} media files were imported.",
                           success=False)
             return
-
+        file = files_list.pop(0)
         mw.taskman.run_in_background(
-            add_media, lambda fut: add_next_file(fut),
-            args={"file": files_list.pop(0)})
+            add_media, lambda fut: add_next_file(fut, file),
+            args={"file": file})
 
-    add_next_file(None)
+    add_next_file(None, None)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
