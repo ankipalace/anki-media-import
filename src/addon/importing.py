@@ -104,6 +104,7 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         return
 
     # 5. Add media files in chunk in background.
+    # TODO: show estimated time left
     log(f"{files_cnt.curr} media files will be processed.")
     MAX_ERRORS = 5
     error_cnt = 0  # Count of errors in succession

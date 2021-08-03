@@ -23,10 +23,10 @@ class LocalTab(ImportTab):
         self.button_text = "Browse"
         self.import_not_valid_tooltip = "Check if your path is correct"
         self.empty_input_msg = "Input a path"
-        self.while_create_rootfile_msg = "Calculating number of files..."
-        self.file_count_msg = "{} files found"
-        self.malformed_url_msg = "This isn't a folder path!"
+        self.while_create_rootpath_msg = "Calculating number of files..."
+        self.malformed_url_msg = "Invalid Path"
         self.root_not_found_msg = "Folder doesn't exist."
+        self.is_a_file_msg = "This path leads to a file. Please write a path to a folder."
 
     def create_root_file(self, url: str) -> LocalRoot:
         return LocalRoot(url)

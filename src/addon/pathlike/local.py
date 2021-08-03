@@ -7,8 +7,10 @@ from .errors import RootNotFoundError, IsAFileError
 
 
 class LocalRoot(RootPath):
-    path: Path
+    name: str
     files: List["FileLike"]
+
+    path: Path
 
     def __init__(self, path: Union[str, Path], recursive: bool = True) -> None:
         if isinstance(path, str):
@@ -20,6 +22,7 @@ class LocalRoot(RootPath):
                 raise IsAFileError()
             else:
                 raise RootNotFoundError()
+        self.name = self.path.name
         self.files = self.list_files(recursive=recursive)
 
     def list_files(self, recursive: bool) -> List["FileLike"]:

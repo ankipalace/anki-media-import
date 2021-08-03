@@ -96,14 +96,17 @@ gdrive = GDrive()
 
 
 class GDriveRoot(RootPath):
-    id: str
+    name: str
     files: List["FileLike"]
+
+    id: str
 
     def __init__(self, url: str) -> None:
         if not API_KEY:
             raise Exception("No API Key Found!")
         self.id = gdrive.parse_url(url)
         data = gdrive.get_metadata(self.id)
+        self.name = data["name"]
         if not gdrive.is_folder(data):
             raise IsAFileError
         self.files = self.list_files(recursive=True)

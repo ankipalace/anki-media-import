@@ -41,16 +41,16 @@ class ImportTab(QWidget):
     import_not_valid_tooltip: str
 
     empty_input_msg: str
-    while_create_rootfile_msg: str
-    file_count_msg: str
+    while_create_rootpath_msg: str
     malformed_url_msg: str
     root_not_found_msg: str
+    is_a_file_msg: str
 
     def __init__(self, dialog: "ImportDialog"):
         QWidget.__init__(self, dialog)
         self.dialog = dialog
         self.valid_path = False
-        self.rootfile: Optional[RootPath] = None
+        self.rootpath: Optional[RootPath] = None
         self.setup()
 
     def define_texts(self) -> None:
@@ -91,7 +91,7 @@ class ImportTab(QWidget):
             return
         mw.progress.start(
             parent=mw, label="Starting import", immediate=True)
-        import_media(self.rootfile, self.dialog.finish_import)
+        import_media(self.rootpath, self.dialog.finish_import)
 
     def on_input_change(self) -> None:
         return
@@ -109,25 +109,25 @@ class ImportTab(QWidget):
             self.sub_text.setText(self.empty_input_msg)
             return
 
-        self.sub_text.setText(self.while_create_rootfile_msg)
+        self.sub_text.setText(self.while_create_rootpath_msg)
 
         def on_done(fut: Future) -> None:
             curr_url = self.path_input.text()
             if not url == curr_url:
                 return
-            self.rootfile = None
+            self.rootpath = None
             try:
-                self.rootfile = fut.result()
+                self.rootpath = fut.result()
                 self.valid_path = True
-                file_count = len(self.rootfile.files)
-                self.sub_text.setText(self.file_count_msg.format(file_count))
+                file_cnt = len(self.rootpath.files)
+                self.sub_text.setText(
+                    f"{file_cnt} files found in '{self.rootpath.name}'")
             except MalformedURLError:
                 self.sub_text.setText(self.malformed_url_msg)
             except RootNotFoundError:
                 self.sub_text.setText(self.root_not_found_msg)
             except IsAFileError:
-                self.sub_text.setText(
-                    "I need a folder, but you gave me a file!")
+                self.sub_text.setText(self.is_a_file_msg)
             except RateLimitError as err:
                 self.sub_text.setText(
                     "Rate limit exceeded. Please try again tomorrow. ({err.code})")
@@ -135,9 +135,7 @@ class ImportTab(QWidget):
                 self.sub_text.setText(
                     "Maybe the server is down? Please try again later. ({err.code})")
             except RequestError as err:
-                print(err)
-                self.rootfile = None
-                self.sub_text.setText(f"ERROR<{err.code}: {err.msg}")
+                self.sub_text.setText(str(err))
             # Network Errors from requests module
             except Timeout as err:
                 err_type = err.__class__.__name__

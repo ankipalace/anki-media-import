@@ -146,6 +146,15 @@ class Mega:
 
         return (public_handle, key, id)
 
+    def decrypt_node_key(self, key_data: str, shared_key: str) -> Tuple[int, ...]:
+        encrypted_key = base64_to_a32(key_data.split(":")[1])
+        return decrypt_key(encrypted_key, shared_key)
+
+    def decrypt_attribute(self, attrs_data: str, key: Tuple[int, ...], is_file: bool = True) -> Dict[str, Any]:
+        if is_file:
+            key = self.xor_key(key)
+        return decrypt_attr(base64_url_decode(attrs_data), key)
+
     def xor_key(self, key: Tuple[int, ...]) -> Tuple[int, ...]:
         return (key[0] ^ key[4], key[1] ^ key[5], key[2] ^ key[6], key[3] ^ key[7])
 
@@ -154,6 +163,7 @@ mega = Mega()
 
 
 class MegaRoot(RootPath):
+    name: str
     files: List["FileLike"]
 
     public_handle: str
@@ -165,29 +175,36 @@ class MegaRoot(RootPath):
         self.public_handle = public_handle
         self.shared_key = base64_to_a32(key)
         self.id = id
-        self.search_files(recursive=True)
+        self.get_data()
 
-    def search_files(self, recursive: bool = True) -> None:
+    def get_data(self) -> None:
+        """Sets self.name and self.files"""
         nodes = mega.list_files(self.public_handle)
         if self.id:
             root_id = self.id
         else:
             root_id = nodes[0]["h"]
+        for node in nodes:
+            if node["h"] == root_id:
+                key = mega.decrypt_node_key(node["k"], self.shared_key)
+                attrs = mega.decrypt_attribute(node["a"], key, is_file=False)
+                self.name = attrs["n"]
+                break
+        if not self.name:  # This shouldn't happen.
+            raise RequestError(msg="Couldn't find the subfolder.")
         self.files = []
-        self._search_files(nodes, root_id, recursive)
+        self.search_files(nodes, root_id, recursive=True)
 
-    def _search_files(self, nodes: List[Dict[str, Any]], id: str, recursive: bool) -> None:
+    def search_files(self, nodes: List[Dict[str, Any]], id: str, recursive: bool) -> None:
         for node in nodes:
             if node["p"] != id:  # Node is not in this folder 'id'
                 continue
             if node["t"] == 1:  # Is folder
-                self._search_files(nodes, node["h"], recursive)
+                self.search_files(nodes, node["h"], recursive)
             if node["t"] != 0:  # Not a file. Special node.
                 continue
-            encrypted_key = base64_to_a32(node["k"].split(":")[1])
-            key = decrypt_key(encrypted_key, self.shared_key)
-            k = mega.xor_key(key)
-            attrs = decrypt_attr(base64_url_decode(node["a"]), k)
+            key = mega.decrypt_node_key(node["k"], self.shared_key)
+            attrs = mega.decrypt_attribute(node["a"], key)
             name = attrs["n"]
             if not '.' in name:
                 continue
