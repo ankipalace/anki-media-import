@@ -12,8 +12,7 @@ import_dialog = None
 
 def open_import_dialog() -> None:
     global import_dialog
-    if import_dialog is None:
-        import_dialog = ImportDialog()
+    import_dialog = ImportDialog()
     import_dialog.show()
 
 
