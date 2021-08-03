@@ -14,7 +14,7 @@ class RootPath(ABC):
         """Raises an Exception if the path is not valid."""
         pass
 
-    def is_media_ext(self, extension: str) -> bool:
+    def has_media_ext(self, extension: str) -> bool:
         return extension.lower() in MEDIA_EXT
 
     @abstractmethod

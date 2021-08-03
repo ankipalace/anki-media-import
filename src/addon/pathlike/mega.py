@@ -135,7 +135,7 @@ class MegaRoot(RootPath):
             if not '.' in name:
                 continue
             ext = name.split(".")[-1]
-            if not self.is_media_ext(ext):
+            if not self.has_media_ext(ext):
                 continue
             file = MegaFile(root=self, id=node["h"], key=key,
                             name=attrs["n"], ext=ext, size=node["s"])

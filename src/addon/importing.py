@@ -65,11 +65,11 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
     # TODO: Allow user to rename/overwrite file
     prev_cnt = tot_cnt
     name_conflicts = name_exists_in_collection(files_list)
-    tot_cnt = len(files_list)
     if len(name_conflicts):
         finish_import(f"{len(name_conflicts)} files have the same name as existing media files.",
                       success=False)
         return
+    tot_cnt = len(files_list)
     cnt_diff = prev_cnt - tot_cnt
     if cnt_diff:
         log(f"{cnt_diff} files were skipped because they already exist in collection.")
@@ -83,17 +83,16 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
     log(f"{tot_cnt} media files will be processed.")
     diff = initial_tot_cnt - tot_cnt
 
-    def add_files(fut: Future, idx: int) -> None:
+    def add_next_file(fut: Future, idx: int) -> None:
         done_cnt = idx + diff
         if fut is not None:
             try:
-                fut.result()  # Check if add_files raised an error
+                fut.result()  # Check if add_media raised an error
             except RequestError as err:
                 finish_import(f"{str(err)}\n{done_cnt} / {initial_tot_cnt} media files were added.",
                               success=False)
                 return
 
-        # Sometimes add_files is called before progress window is repainted
         mw.progress.update(
             label=f"Adding media files ({done_cnt} / {initial_tot_cnt})",
             value=done_cnt, max=initial_tot_cnt)
@@ -111,11 +110,11 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
             return
 
         mw.taskman.run_in_background(
-            add_media, lambda fut: add_files(fut, idx),
+            add_media, lambda fut: add_next_file(fut, idx),
             args={"file": files_list[idx]})
         idx += 1
 
-    add_files(None, 0)
+    add_next_file(None, 0)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
@@ -170,7 +169,7 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     return name_conflicts
 
 
-def add_media(file: FileLike) -> None:  # TODO: gdrive
+def add_media(file: FileLike) -> None:
     """
         Tries to add media with the same basename.
         But may change the name if it overlaps with existing media.
