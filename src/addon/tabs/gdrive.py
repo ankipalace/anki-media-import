@@ -18,8 +18,8 @@ class GDriveTab(ImportTab):
         self.empty_input_msg = "Input a url to a Google Drive shared folder"
         self.while_create_rootfile_msg = "Checking if URL is valid..."
         self.file_count_msg = "{} files found"
-        self.malformed_url_msg = "Invalid URL"
-        self.root_not_found_msg = "Folder not found"
+        self.malformed_url_msg = "I can't read this: is this a google drive URL?"
+        self.root_not_found_msg = "Folder doesn't exist. Maybe check if it's shared?"
 
     def on_btn(self) -> None:
         self.update_root_file()

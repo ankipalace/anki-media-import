@@ -80,6 +80,7 @@ class ImportTab(QWidget):
 
         sub_text = small_qlabel(self.empty_input_msg)
         self.sub_text = sub_text
+        sub_text.setWordWrap(True)
         main_grid.addWidget(sub_text, 1, 2)
 
         main_layout.addStretch(1)
@@ -128,16 +129,16 @@ class ImportTab(QWidget):
             except IsAFileError:
                 self.sub_text.setText(
                     "I need a folder, but you gave me a file!")
-            except RateLimitError:
+            except RateLimitError as err:
                 self.sub_text.setText(
-                    "Rate limit exceeded. Please try again tomorrow.")
-            except ServerError:
+                    "Rate limit exceeded. Please try again tomorrow. ({err.code})")
+            except ServerError as err:
                 self.sub_text.setText(
-                    "Maybe the server is down? Please try again later.")
+                    "Maybe the server is down? Please try again later. ({err.code})")
             except RequestError as err:
                 print(err)
                 self.rootfile = None
-                self.sub_text.setText(f"ERROR: {err.msg}")
+                self.sub_text.setText(f"ERROR<{err.code}: {err.msg}")
             # Network Errors from requests module
             except Timeout as err:
                 err_type = err.__class__.__name__
@@ -146,11 +147,14 @@ class ImportTab(QWidget):
             except ConnectionError as err:
                 err_type = err.__class__.__name__
                 self.sub_text.setText(
-                    f"Network error<{err_type}>: Please check if you network is connected.")
+                    f"Network error<{err_type}>: Please check if your network is connected.")
             except RequestException as err:  # Catch all other errors from requests
                 err_type = err.__class__.__name__
                 self.sub_text.setText(
                     f"Network error<{err_type}>: Something went wrong.")
+            # Local File Errors
+            except PermissionError as err:
+                self.sub_text.setText(str(err))
 
         mw.taskman.run_in_background(
             self.create_root_file, on_done, {"url": url})

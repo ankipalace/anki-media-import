@@ -25,8 +25,8 @@ class LocalTab(ImportTab):
         self.empty_input_msg = "Input a path"
         self.while_create_rootfile_msg = "Calculating number of files..."
         self.file_count_msg = "{} files found"
-        self.malformed_url_msg = "Invalid Path"
-        self.root_not_found_msg = "Folder not found"
+        self.malformed_url_msg = "This isn't a folder path!"
+        self.root_not_found_msg = "Folder doesn't exist."
 
     def create_root_file(self, url: str) -> LocalRoot:
         return LocalRoot(url)
