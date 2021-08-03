@@ -24,7 +24,8 @@ for idx, char in enumerate(chars):
         r = random.randint(0, len(chars) - 1)  # includes end number
         code += f"{char}='{chars[r]}'\n"
 
-code += "def get_google_api_key():\n  return ''"
+code += "def get_google_api_key() -> str:\n"
+code += "  return ''"
 
 for i in chosen:
     code += "+"
