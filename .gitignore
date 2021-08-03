@@ -1,5 +1,6 @@
 meta.json
 *.ankiaddon
+google_api_key.py
 
 src/addon/libs/
 
