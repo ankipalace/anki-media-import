@@ -80,6 +80,7 @@ class ImportDialog(QDialog):
             self.close()
         else:
             ImportResultDialog(self, result).exec_()
+            self.tab.update_root_file()
 
     def open_media_dir(self) -> None:
         media_dir = media_paths_from_col_path(mw.col.path)[0]
