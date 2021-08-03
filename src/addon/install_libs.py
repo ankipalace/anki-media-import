@@ -27,4 +27,3 @@ dist_info_name = "pycryptodome-3.10.1.dist-info"
 shutil.copytree(str(pycrypto_path / "Crypto"), str(libs_path / "Crypto"))
 shutil.copytree(str(pycrypto_path / dist_info_name),
                 str(libs_path / dist_info_name))
-shutil.rmtree(pycrypto_path)
