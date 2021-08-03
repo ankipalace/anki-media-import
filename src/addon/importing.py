@@ -14,6 +14,32 @@ class ImportResult(NamedTuple):
     success: bool
 
 
+class FilesCount():
+    files: list
+    tot: int
+    prev: int
+
+    def __init__(self, files: list) -> None:
+        self.files = files
+        self.tot = len(files)
+        self.prev = self.tot
+        self.diff = 0
+
+    def update_diff(self) -> int:
+        """ Returns `curr - prev`, then updates prev to curr """
+        self.diff = self.prev - self.curr
+        self.prev = self.curr
+        return self.diff
+
+    @property
+    def curr(self) -> int:
+        return len(self.files)
+
+    @property
+    def left(self) -> int:
+        return self.tot - self.curr
+
+
 def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
     """
     Import media from a directory, and its subdirectories. 
@@ -42,8 +68,8 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
 
     # 1. Get the name of all media files.
     files_list = src.files
-    initial_tot_cnt = len(files_list)
-    log(f"{initial_tot_cnt} media files found.")
+    files_cnt = FilesCount(files_list)
+    log(f"{files_cnt.tot} media files found.")
 
     # 2. Normalize file names
     unnormalized = find_unnormalized_name(files_list)
@@ -57,65 +83,58 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         finish_import("There are multiple files with same filename.",
                       success=False)
         return
-    tot_cnt = len(files_list)
-    cnt_diff = initial_tot_cnt - tot_cnt
-    if cnt_diff:
-        log(f"{cnt_diff} files were skipped because they are identical.")
+
+    if files_cnt.update_diff():
+        log(f"{files_cnt.diff} files were skipped because they are identical.")
 
     # 4. Check collection.media if there is a file with same name.
     # TODO: Allow user to rename/overwrite file
-    prev_cnt = tot_cnt
     name_conflicts = name_exists_in_collection(files_list)
     if len(name_conflicts):
         finish_import(f"{len(name_conflicts)} files have the same name as existing media files.",
                       success=False)
         return
-    tot_cnt = len(files_list)
-    cnt_diff = prev_cnt - tot_cnt
-    if cnt_diff:
-        log(f"{cnt_diff} files were skipped because they already exist in collection.")
+    if files_cnt.update_diff():
+        log(f"{files_cnt.diff} files were skipped because they already exist in collection.")
 
-    if tot_cnt == 0:
+    if files_cnt.curr == 0:
         finish_import(
-            f"{initial_tot_cnt} media files were imported", success=True)
+            f"{files_cnt.tot} media files were imported", success=True)
         return
 
     # 5. Add media files in chunk in background.
-    log(f"{tot_cnt} media files will be processed.")
-    diff = initial_tot_cnt - tot_cnt
+    log(f"{files_cnt.curr} media files will be processed.")
 
-    def add_next_file(fut: Future, idx: int) -> None:
-        done_cnt = idx + diff
+    def add_next_file(fut: Future) -> None:
         if fut is not None:
             try:
                 fut.result()  # Check if add_media raised an error
             except AddonError as err:
-                finish_import(f"{str(err)}\n{done_cnt} / {initial_tot_cnt} media files were added.",
+                finish_import(f"{str(err)}\n{files_cnt.left} / {files_cnt.tot} media files were added.",
                               success=False)
                 return
 
         mw.progress.update(
-            label=f"Adding media files ({done_cnt} / {initial_tot_cnt})",
-            value=done_cnt, max=initial_tot_cnt)
+            label=f"Adding media files ({files_cnt.left} / {files_cnt.tot})",
+            value=files_cnt.left, max=files_cnt.tot)
 
         # Last file was added
-        if idx == tot_cnt:
-            finish_import(
-                f"{initial_tot_cnt} media files were imported.", success=True)
+        if len(files_list) == 0:
+            finish_import(f"{files_cnt.tot} media files were imported.",
+                          success=True)
             return
 
         # Abort import
         if mw.progress.want_cancel():
-            finish_import(f"Import aborted.\n{done_cnt} / {initial_tot_cnt} media files were imported.",
+            finish_import(f"Import aborted.\n{files_cnt.left} / {files_cnt.tot} media files were imported.",
                           success=False)
             return
 
         mw.taskman.run_in_background(
-            add_media, lambda fut: add_next_file(fut, idx),
-            args={"file": files_list[idx]})
-        idx += 1
+            add_media, lambda fut: add_next_file(fut),
+            args={"file": files_list.pop(0)})
 
-    add_next_file(None, 0)
+    add_next_file(None)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
