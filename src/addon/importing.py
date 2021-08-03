@@ -5,6 +5,7 @@ import unicodedata
 
 from anki.media import media_paths_from_col_path
 from aqt import mw
+from aqt.utils import askUserDialog
 
 from .pathlike import FileLike, RootPath, LocalRoot
 from .pathlike.errors import AddonError
@@ -92,11 +93,24 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
     # TODO: Allow user to rename/overwrite file
     name_conflicts = name_exists_in_collection(files_list)
     if len(name_conflicts):
-        finish_import(f"{len(name_conflicts)} files have the same name as existing media files.",
-                      success=False)
-        return
+        msg = f"{len(name_conflicts)} files have the same name as existing media files:"
+        log(msg)
+        file_names_str = ""
+        for file in name_conflicts:
+            file_names_str += file.name + "\n"
+        log(file_names_str + "-"*16)
+        ask_msg = msg + "\nDo you want to import the rest of the files?"
+        diag = askUserDialog(
+            ask_msg, buttons=["Abort Import", "Continue Import"])
+        mw.progress.finish()
+        if diag.run() == "Abort Import":
+            finish_import("Aborted import due to name conflict with existing media",
+                          success=False)
+            return
+        mw.progress.start(parent=mw, label="Importing media", immediate=True)
     if files_cnt.update_diff():
-        log(f"{files_cnt.diff} files were skipped because they already exist in collection.")
+        diff = files_cnt.diff - len(name_conflicts)
+        log(f"{diff} files were skipped because they already exist in collection.")
 
     if files_cnt.curr == 0:
         finish_import(
@@ -117,7 +131,7 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
                 error_cnt = 0
             except (AddonError, RequestException) as err:
                 error_cnt += 1
-                log("-"*12 + "\n" + str(err) + "\n" + "-"*12)
+                log("-"*16 + "\n" + str(err) + "\n" + "-"*16)
                 if error_cnt < MAX_ERRORS:
                     if files_cnt.left < 10:
                         log(f"{files_cnt.left} files were not imported.")
@@ -192,15 +206,15 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     collection_files = {file.name: file for file in collection_file_paths}
 
     name_conflicts: List[FileLike] = []
-    identical: List[int] = []
+    to_pop: List[int] = []
 
     for idx, file in enumerate(files_list):
         if file.name in collection_files:
-            if file.is_identical(collection_files[file.name]):
-                identical.append(idx)
-            else:
+            to_pop.append(idx)
+            if not file.is_identical(collection_files[file.name]):
                 name_conflicts.append(file)
-    for idx in sorted(identical, reverse=True):
+
+    for idx in sorted(to_pop, reverse=True):
         files_list.pop(idx)
     return name_conflicts
 
