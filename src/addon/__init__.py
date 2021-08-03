@@ -1,3 +1,8 @@
+try:
+    import Crypto
+except:
+    from . import install_libs
+
 
 import sys
 from pathlib import Path

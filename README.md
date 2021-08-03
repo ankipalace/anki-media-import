@@ -1,3 +1,8 @@
+
+It may not be possible to delete the add-on during runtime.
+In that case, you will need to open the addon directory by clicking 'View Files', 
+close Anki, and manually delete the addon directory.
+
 # Development
 
 Run the following code to install all required packages
