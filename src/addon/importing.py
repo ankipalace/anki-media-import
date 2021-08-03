@@ -16,11 +16,19 @@ class ImportResult(NamedTuple):
 def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
     """
     Import media from a directory, and its subdirectories. 
-    (Or import a specific file.)
-    TODO: import_media MUST call finish_import even when exception occurs
     """
-
     logs: List[str] = []
+
+    try:
+        _import_media(logs, src, on_done)
+    except Exception as err:
+        print(str(err))
+        logs.append(str(err))
+        res = ImportResult(logs, success=False)
+        on_done(res)
+
+
+def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
 
     def log(msg: str) -> None:
         print(f"Media Import: {msg}")
@@ -31,49 +39,44 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
         result = ImportResult(logs, success)
         on_done(result)
 
-    try:
-        # 1. Get the name of all media files.
-        files_list = src.list_files(recursive=True)
-        initial_tot_cnt = len(files_list)
-        log(f"{initial_tot_cnt} media files found.")
+    # 1. Get the name of all media files.
+    files_list = src.list_files(recursive=True)
+    initial_tot_cnt = len(files_list)
+    log(f"{initial_tot_cnt} media files found.")
 
-        # 2. Normalize file names
-        unnormalized = find_unnormalized_name(files_list)
-        if len(unnormalized):
-            finish_import(f"{len(unnormalized)} files have invalid file names: {unnormalized}",
-                          success=False)
-            return
+    # 2. Normalize file names
+    unnormalized = find_unnormalized_name(files_list)
+    if len(unnormalized):
+        finish_import(f"{len(unnormalized)} files have invalid file names: {unnormalized}",
+                      success=False)
+        return
 
-        # 3. Make sure there isn't a name conflict within new files.
-        if name_conflict_exists(files_list):
-            finish_import("There are multiple files with same filename.",
-                          success=False)
-            return
-        tot_cnt = len(files_list)
-        cnt_diff = initial_tot_cnt - tot_cnt
-        if cnt_diff:
-            log(f"{cnt_diff} files were skipped because they are identical.")
+    # 3. Make sure there isn't a name conflict within new files.
+    if name_conflict_exists(files_list):
+        finish_import("There are multiple files with same filename.",
+                      success=False)
+        return
+    tot_cnt = len(files_list)
+    cnt_diff = initial_tot_cnt - tot_cnt
+    if cnt_diff:
+        log(f"{cnt_diff} files were skipped because they are identical.")
 
-        # 4. Check collection.media if there is a file with same name.
-        # TODO: Allow user to rename/overwrite file
-        prev_cnt = tot_cnt
-        name_conflicts = name_exists_in_collection(files_list)
-        tot_cnt = len(files_list)
-        if len(name_conflicts):
-            finish_import(f"{len(name_conflicts)} files have the same name as existing media files.",
-                          success=False)
-            return
-        cnt_diff = prev_cnt - tot_cnt
-        if cnt_diff:
-            log(f"{cnt_diff} files were skipped because they already exist in collection.")
+    # 4. Check collection.media if there is a file with same name.
+    # TODO: Allow user to rename/overwrite file
+    prev_cnt = tot_cnt
+    name_conflicts = name_exists_in_collection(files_list)
+    tot_cnt = len(files_list)
+    if len(name_conflicts):
+        finish_import(f"{len(name_conflicts)} files have the same name as existing media files.",
+                      success=False)
+        return
+    cnt_diff = prev_cnt - tot_cnt
+    if cnt_diff:
+        log(f"{cnt_diff} files were skipped because they already exist in collection.")
 
-        if tot_cnt == 0:
-            finish_import(
-                f"{initial_tot_cnt} media files were imported", success=True)
-            return
-
-    except RequestError as err:
-        finish_import(str(err), success=False)
+    if tot_cnt == 0:
+        finish_import(
+            f"{initial_tot_cnt} media files were imported", success=True)
         return
 
     # 5. Add media files in chunk in background.
