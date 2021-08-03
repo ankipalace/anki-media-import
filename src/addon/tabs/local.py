@@ -28,14 +28,8 @@ class LocalTab(ImportTab):
         self.malformed_url_msg = "Invalid Path"
         self.root_not_found_msg = "Folder not found"
 
-    def on_import(self) -> None:
-        path = LocalRoot(self.path_input.text())
-        if self.valid_path:
-            mw.progress.start(
-                parent=mw, label="Starting import", immediate=True)
-            import_media(path, self.dialog.finish_import)
-        else:
-            tooltip("Invalid Path", parent=self)  # type: ignore
+    def create_root_file(self, url: str) -> LocalRoot:
+        return LocalRoot(url)
 
     def on_btn(self) -> None:
         path = self.get_directory()
