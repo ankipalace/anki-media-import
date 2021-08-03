@@ -8,4 +8,3 @@ sys.path.append(str(libs_dir))
 
 
 from . import ui
-from . import config
