@@ -6,9 +6,7 @@ import os
 from .base import FileLike, RootPath
 from .errors import *
 
-# TODO: Handle network errors, api errors, invalid id, etc.
 # TODO: (don't) handle google docs file
-# TODO: package api key into the addon
 
 try:
     from ..google_api_key import get_google_api_key  # type: ignore
@@ -111,7 +109,6 @@ class GDriveRoot(RootPath):
         return files
 
     def search_files(self, files: List["FileLike"], id: str, recursive: bool) -> None:
-        # TODO: only list files with appropriate mime type
         res = gdrive.list_paths(id)
         paths = res["files"]
         for path in paths:

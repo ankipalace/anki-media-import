@@ -112,7 +112,6 @@ class ImportTab(QWidget):
         self.sub_text.setText(self.while_create_rootfile_msg)
 
         def on_done(fut: Future) -> None:
-            # TODO: green and red text?
             curr_url = self.path_input.text()
             if not url == curr_url:
                 return
