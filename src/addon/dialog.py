@@ -33,6 +33,7 @@ class ImportDialog(QDialog):
         QDialog.__init__(self, mw, Qt.Window)
         self.setWindowTitle("Import Media")
         self.setMinimumWidth(500)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setup()
         self.setup_buttons()
         restoreGeom(self, f"addon-mediaimport-import")
@@ -76,7 +77,7 @@ class ImportDialog(QDialog):
         mw.progress.finish()
         if result.success:
             ImportResultDialog(mw, result).exec_()
-            self.hide()
+            self.close()
         else:
             ImportResultDialog(self, result).exec_()
 
@@ -92,6 +93,4 @@ class ImportDialog(QDialog):
 
     @property
     def tab(self) -> "ImportTab":
-        print(self.main_tab.currentWidget())
-        print(type(self.main_tab.currentWidget()))
         return self.main_tab.currentWidget()  # type: ignore
