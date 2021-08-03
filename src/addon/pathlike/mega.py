@@ -10,7 +10,7 @@ from mega.errors import RequestError as MegaReqError
 from mega.crypto import a32_to_str, base64_to_a32, base64_url_decode, decrypt_attr, decrypt_key
 
 from .base import RootPath, FileLike
-from .errors import MalformedURLError, RootNotFoundError, RequestError
+from .errors import *
 
 """
 Mega node (file/folder) datatype:
@@ -18,7 +18,7 @@ h: str - id of the node
 p: str - id of its parent node
 u: str - user id
 t: int[0-3] - node type. 0: file, 1: folder
-a: str - encrypted dictionary of attributes 
+a: str - encrypted dictionary of attributes
     {n: str - name, c: str - hash? maybe based on creation time }
 k: str - file key. Use shared folder's key to create the real file's key
 s: int - file size
@@ -29,7 +29,8 @@ ts: int - timestamp
 class Mega:
     def __init__(self) -> None:
         self.sequence_num = random.randint(0, 0xFFFFFFFF)
-        self.REGEXP = r"https?://mega.(?:io|nz|co\.nz)/folder/([0-z-_]+)#([0-z-_]+)"
+        self.REGEXP = r"https?://mega.(?:io|nz|co\.nz)/(folder|file)/([0-z-_]+)#([0-z-_]+)"
+        # TODO: accept old style links
         self.URL_PATTERN = re.compile(self.REGEXP)
 
     def api_request(self, data: Union[dict, list], root_folder: Optional[str]) -> dict:
@@ -91,15 +92,39 @@ class Mega:
 
         return file
 
+    def list_files(self, id: str) -> List[dict]:
+        data = [{"a": "f", "c": 1, "ca": 1, "r": 1}]
+        try:
+            nodes = self.api_request(data, id)["f"]
+        except MegaReqError as e:
+            if e.code in (-8, -9, -13):
+                raise RootNotFoundError(e.code)
+            elif e.code in (-1, -3):
+                raise ServerError(e.code)
+            elif e.code in (-4, -17):
+                raise RateLimitError(e.code)
+            else:
+                raise RequestError(e.code, e.message)
+        return nodes
+
     def parse_url(self, url: str) -> Optional[Tuple[str, str]]:
         "Returns (id, key) if valid. If not returns None."
         m = re.search(self.URL_PATTERN, url)
-        if m:
-            if url.count("/folder/") > 1:
-                # TODO: subfolder of a shared folder
-                raise MalformedURLError()
-            return (m.group(1), m.group(2))
-        raise MalformedURLError()
+        if not m:
+            raise MalformedURLError()
+        if m.group(1) == "file":
+            raise IsAFileError()
+        if url.count("/folder/") > 1:
+            # TODO: subfolder of a shared folder
+            raise MalformedURLError()
+        id = m.group(2)
+        key = m.group(3)
+        if len(id) != 8:
+            raise MalformedURLError()
+        if len(key) != 22:
+            raise MalformedURLError()
+
+        return (id, key)
 
     def xor_key(self, key: Tuple[int, ...]) -> Tuple[int, ...]:
         return (key[0] ^ key[4], key[1] ^ key[5], key[2] ^ key[6], key[3] ^ key[7])
@@ -120,8 +145,7 @@ class MegaRoot(RootPath):
         self.files = self.list_files(recursive=True)
 
     def list_files(self, recursive: bool = True) -> List[FileLike]:
-        data = [{"a": "f", "c": 1, "ca": 1, "r": 1}]
-        nodes = mega.api_request(data, self.id)["f"]
+        nodes = mega.list_files(self.id)
         files: List[FileLike] = []
         root_id = nodes[0]["h"]
         for node in nodes:

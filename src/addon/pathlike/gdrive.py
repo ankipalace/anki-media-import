@@ -4,7 +4,7 @@ import re
 import os
 
 from .base import FileLike, RootPath
-from .errors import MalformedURLError, RootNotFoundError, RequestError
+from .errors import *
 
 # TODO: Handle network errors, api errors, invalid id, etc.
 # TODO: (don't) handle google docs file
@@ -60,16 +60,23 @@ class GDrive():
         try:
             body = res.json()["error"]
             code = body["code"]
-            errors = body["errors"]
-            if errors:
-                message = "".join([err["message"] for err in errors])
-            else:
-                message = body["message"]
-            if code == 404:
-                raise RootNotFoundError()
-            raise RequestError(code, message)
-        finally:
+        except:
+            print(res.text)
             raise RequestError(-1, res.text)
+        try:
+            error = body["errors"][0]
+            message = error["message"]
+            reason = error["reason"]
+        except:
+            message = body["message"]
+            reason = ""
+        if code == 404:
+            raise RootNotFoundError(code, message)
+        elif code in range(500, 505):
+            raise ServerError(code, message)
+        elif code in (403, 429) and reason in ("userRateLimitExceeded", "rateLimitExceeded", "dailyLimitExceeded"):
+            raise RateLimitError(code, message)
+        raise RequestError(code, message)
 
     def is_folder(self, pathdata: dict) -> bool:
         return pathdata["mimeType"] == "application/vnd.google-apps.folder"
@@ -94,7 +101,8 @@ class GDriveRoot(RootPath):
             raise Exception("No API Key Found!")
         self.id = gdrive.parse_url(url)
         data = gdrive.get_metadata(self.id)
-        # TODO check if folder!
+        if not gdrive.is_folder(data):
+            raise IsAFileError
         self.files = self.list_files(recursive=True)
 
     def list_files(self, recursive: bool) -> List["FileLike"]:

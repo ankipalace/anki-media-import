@@ -7,7 +7,8 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import tooltip
 
-from ..pathlike import RootPath, RequestError, RootNotFoundError, MalformedURLError
+from ..pathlike import RootPath
+from ..pathlike.errors import *
 from ..importing import import_media
 
 if TYPE_CHECKING:
@@ -110,22 +111,29 @@ class ImportTab(QWidget):
         self.sub_text.setText(self.while_create_rootfile_msg)
 
         def on_done(fut: Future) -> None:
-            # TODO: add PermissionError, IsAFileError. Write how many files to import.
-            # TODO: And handle requests error. eg. NewConnectionError
+            # TODO: green and red text?
             curr_url = self.path_input.text()
             if not url == curr_url:
                 return
+            self.rootfile = None
             try:
                 self.rootfile = fut.result()
                 self.valid_path = True
                 file_count = len(self.rootfile.files)
                 self.sub_text.setText(self.file_count_msg.format(file_count))
             except MalformedURLError:
-                self.rootfile = None
                 self.sub_text.setText(self.malformed_url_msg)
             except RootNotFoundError:
-                self.rootfile = None
                 self.sub_text.setText(self.root_not_found_msg)
+            except IsAFileError:
+                self.sub_text.setText(
+                    "I need a folder, but you gave me a file!")
+            except RateLimitError:
+                self.sub_text.setText(
+                    "Rate limit exceeded. Please try again tomorrow.")
+            except ServerError:
+                self.sub_text.setText(
+                    "Maybe the server is down? Please try again later.")
             except RequestError as err:
                 print(err)
                 self.rootfile = None

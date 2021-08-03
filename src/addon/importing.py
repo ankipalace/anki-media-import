@@ -5,7 +5,8 @@ import unicodedata
 from anki.media import media_paths_from_col_path
 from aqt import mw
 
-from .pathlike import FileLike, RootPath, LocalRoot, RequestError
+from .pathlike import FileLike, RootPath, LocalRoot
+from .pathlike.errors import AddonError
 
 
 class ImportResult(NamedTuple):
@@ -88,7 +89,7 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         if fut is not None:
             try:
                 fut.result()  # Check if add_media raised an error
-            except RequestError as err:
+            except AddonError as err:
                 finish_import(f"{str(err)}\n{done_cnt} / {initial_tot_cnt} media files were added.",
                               success=False)
                 return

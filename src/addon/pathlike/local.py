@@ -3,6 +3,7 @@ from typing import List, Union, Optional
 from pathlib import Path
 
 from .base import RootPath, FileLike
+from .errors import RootNotFoundError, IsAFileError
 
 
 class LocalRoot(RootPath):
@@ -14,6 +15,11 @@ class LocalRoot(RootPath):
             self.path = Path(path)
         else:
             self.path = path
+        if not self.path.is_dir():
+            if self.path.is_file():
+                raise IsAFileError()
+            else:
+                raise RootNotFoundError()
         self.files = self.list_files(recursive=recursive)
 
     def list_files(self, recursive: bool) -> List["FileLike"]:
