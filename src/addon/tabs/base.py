@@ -1,6 +1,6 @@
 from concurrent.futures import Future
 from typing import TYPE_CHECKING, Optional
-from urllib3.exceptions import HTTPError  # type: ignore
+from requests.exceptions import ConnectionError, Timeout, RequestException  # type: ignore
 import math
 
 from aqt import mw
@@ -138,9 +138,19 @@ class ImportTab(QWidget):
                 print(err)
                 self.rootfile = None
                 self.sub_text.setText(f"ERROR: {err.msg}")
-            except HTTPError:
-                self.rootfile = None
-                self.sub_text.setText("Network error")
+            # Network Errors from requests module
+            except Timeout as err:
+                err_type = err.__class__.__name__
+                self.sub_text.setText(
+                    f"Network error<{err_type}: Can't connect to server.")
+            except ConnectionError as err:
+                err_type = err.__class__.__name__
+                self.sub_text.setText(
+                    f"Network error<{err_type}>: Please check if you network is connected.")
+            except RequestException as err:  # Catch all other errors from requests
+                err_type = err.__class__.__name__
+                self.sub_text.setText(
+                    f"Network error<{err_type}>: Something went wrong.")
 
         mw.taskman.run_in_background(
             self.create_root_file, on_done, {"url": url})

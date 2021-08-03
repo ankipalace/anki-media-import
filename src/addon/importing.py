@@ -1,5 +1,6 @@
 from concurrent.futures import Future
 from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple, Optional
+from requests.exceptions import RequestException
 import unicodedata
 
 from anki.media import media_paths_from_col_path
@@ -108,14 +109,16 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
     error_cnt = 0  # Count of errors in succession
 
     def add_next_file(fut: Optional[Future], file: Optional[FileLike]) -> None:
+        nonlocal error_cnt
         if fut is not None:
             try:
                 fut.result()  # Check if add_media raised an error
                 error_cnt = 0
-            except AddonError as err:
+            except (AddonError, RequestException) as err:
                 error_cnt += 1
+                log("-"*12 + "\n" + str(err) + "\n" + "-"*12)
                 if error_cnt < MAX_ERRORS:
-                    finish_import(f"{str(err)}\n{files_cnt.left} / {files_cnt.tot} media files were added.",
+                    finish_import(f"{files_cnt.left} / {files_cnt.tot} media files were added.",
                                   success=False)
                     return
                 else:
