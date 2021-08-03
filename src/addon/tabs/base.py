@@ -41,7 +41,7 @@ class ImportTab(QWidget):
 
     empty_input_msg: str
     while_create_rootfile_msg: str
-    valid_input_msg: str
+    file_count_msg: str
     malformed_url_msg: str
     root_not_found_msg: str
 
@@ -118,7 +118,8 @@ class ImportTab(QWidget):
             try:
                 self.rootfile = fut.result()
                 self.valid_path = True
-                self.sub_text.setText(self.valid_input_msg)
+                file_count = len(self.rootfile.files)
+                self.sub_text.setText(self.file_count_msg.format(file_count))
             except MalformedURLError:
                 self.rootfile = None
                 self.sub_text.setText(self.malformed_url_msg)

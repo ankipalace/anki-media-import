@@ -17,7 +17,7 @@ class MegaTab(ImportTab):
         self.import_not_valid_tooltip = "Check if your URL is correct, then press 'check URL'."
         self.empty_input_msg = "Input a url to a Mega shared folder"
         self.while_create_rootfile_msg = "Checking if URL is valid..."
-        self.valid_input_msg = "Valid URL"
+        self.file_count_msg = "{} files found"
         self.malformed_url_msg = "Invalid URL"
         self.root_not_found_msg = "Folder not found"
 

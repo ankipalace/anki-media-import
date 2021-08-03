@@ -111,11 +111,13 @@ mega = Mega()
 class MegaRoot(RootPath):
     id: str
     shared_key: str
+    files: List["FileLike"]
 
     def __init__(self, url: str) -> None:
         (id, key) = mega.parse_url(url)
         self.id = id
         self.shared_key = base64_to_a32(key)
+        self.files = self.list_files(recursive=True)
 
     def list_files(self, recursive: bool = True) -> List[FileLike]:
         data = [{"a": "f", "c": 1, "ca": 1, "r": 1}]

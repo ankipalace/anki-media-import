@@ -40,7 +40,7 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         on_done(result)
 
     # 1. Get the name of all media files.
-    files_list = src.list_files(recursive=True)
+    files_list = src.files
     initial_tot_cnt = len(files_list)
     log(f"{initial_tot_cnt} media files found.")
 
@@ -151,8 +151,9 @@ def name_conflict_exists(files_list: List[FileLike]) -> bool:
 def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     """Returns list of files whose names conflict with existing media files.
        And remove files if identical file exists in collection. """
-    media_dir = LocalRoot(media_paths_from_col_path(mw.col.path)[0])
-    collection_file_paths = media_dir.list_files(recursive=False)
+    media_dir = LocalRoot(media_paths_from_col_path(
+        mw.col.path)[0], recursive=False)
+    collection_file_paths = media_dir.files
     collection_files = {file.name: file for file in collection_file_paths}
 
     name_conflicts: List[FileLike] = []

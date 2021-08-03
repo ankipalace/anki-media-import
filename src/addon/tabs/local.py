@@ -24,7 +24,7 @@ class LocalTab(ImportTab):
         self.import_not_valid_tooltip = "Check if your path is correct"
         self.empty_input_msg = "Input a path"
         self.while_create_rootfile_msg = "Calculating number of files..."
-        self.valid_input_msg = "Valid Path"
+        self.file_count_msg = "{} files found"
         self.malformed_url_msg = "Invalid Path"
         self.root_not_found_msg = "Folder not found"
 

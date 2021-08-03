@@ -7,12 +7,14 @@ from .base import RootPath, FileLike
 
 class LocalRoot(RootPath):
     path: Path
+    files: List["FileLike"]
 
-    def __init__(self, path: Union[str, Path]) -> None:
+    def __init__(self, path: Union[str, Path], recursive: bool = True) -> None:
         if isinstance(path, str):
             self.path = Path(path)
         else:
             self.path = path
+        self.files = self.list_files(recursive=recursive)
 
     def list_files(self, recursive: bool) -> List["FileLike"]:
         files: List["FileLike"] = []
@@ -22,7 +24,7 @@ class LocalRoot(RootPath):
     def search_files(self, files: List["FileLike"], src: Path, recursive: bool) -> None:
         for path in src.iterdir():
             if path.is_file():
-                if len(path.suffix) > 1 and self.is_media_ext(path.suffix[1:]):
+                if len(path.suffix) > 1 and self.has_media_ext(path.suffix[1:]):
                     files.append(LocalFile(path))
             elif recursive and path.is_dir():
                 self.search_files(files, path, recursive=True)
