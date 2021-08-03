@@ -20,7 +20,9 @@ except:  # Not production?
 
 class GDrive():
     REGEXP = r"drive.google.com/drive/folders/([^?]*)(?:\?|$)"
+    FILE_REGEXP = r"drive.google.com/drive/file/"
     URL_PATTERN = re.compile(REGEXP)
+    FILE_URL_PATTERN = re.compile(FILE_REGEXP)
 
     BASE_URL = "https://www.googleapis.com/drive/v3/files"
     FIELDS_STR = ','.join(["id", "name", "md5Checksum",
@@ -84,6 +86,9 @@ class GDrive():
         m = re.search(self.URL_PATTERN, url)
         if m:
             return m.group(1)
+        m = re.search(self.FILE_URL_PATTERN, url)
+        if m:
+            raise IsAFileError()
         raise MalformedURLError()
 
 
