@@ -36,6 +36,9 @@ class LocalTab(ImportTab):
         if path is not None:
             self.path_input.setText(path)
             self.update_root_file()
+    
+    def on_input_change(self) -> None:
+        self.update_root_file()
 
     # File Browse Dialog
     def file_name_filter(self) -> str:
