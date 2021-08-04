@@ -35,11 +35,13 @@ def small_qlabel(text: str) -> QLabel:
 
 
 class ImportTab(QWidget):
+    dialog: "ImportDialog"
+    valid_path: bool
+    rootpath: Optional[RootPath]
 
     # Messages that differ by tab. Define them in subclasses.
     button_text: str
     import_not_valid_tooltip: str
-
     empty_input_msg: str
     while_create_rootpath_msg: str
     malformed_url_msg: str
@@ -98,6 +100,12 @@ class ImportTab(QWidget):
 
     def on_btn(self) -> None:
         return
+
+    def clear_path(self) -> None:
+        self.path_input.setText("")
+        self.sub_text.setText(self.empty_input_msg)
+        self.rootpath = None
+        self.valid_path = False
 
     def create_root_file(self, url: str) -> RootPath:
         pass

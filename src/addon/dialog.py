@@ -33,7 +33,6 @@ class ImportDialog(QDialog):
         QDialog.__init__(self, mw, Qt.Window)
         self.setWindowTitle("Import Media")
         self.setMinimumWidth(500)
-        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setup()
         self.setup_buttons()
         restoreGeom(self, f"addon-mediaimport-import")
@@ -55,6 +54,7 @@ class ImportDialog(QDialog):
         main_tab.addTab(self.gdrive_tab, "Google Drive")
         self.mega_tab = MegaTab(self)
         main_tab.addTab(self.mega_tab, "Mega")
+        self.tabs = [self.local_tab, self.gdrive_tab, self.mega_tab]
 
     def setup_buttons(self) -> None:
         button_row = QHBoxLayout()
@@ -88,6 +88,8 @@ class ImportDialog(QDialog):
 
     def closeEvent(self, evt: QCloseEvent) -> None:
         saveGeom(self, f"addon-mediaImport-import")
+        for tab in self.tabs:
+            tab.clear_path()
 
     def on_import(self) -> None:
         self.tab.on_import()

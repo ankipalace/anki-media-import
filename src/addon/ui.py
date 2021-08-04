@@ -12,8 +12,11 @@ import_dialog = None
 
 def open_import_dialog() -> None:
     global import_dialog
-    import_dialog = ImportDialog()
-    import_dialog.show()
+    if import_dialog is None:
+        import_dialog = ImportDialog()
+    if not import_dialog.isVisible():
+        import_dialog.show()
+    import_dialog.activateWindow()
 
 
 # Anking menu code
