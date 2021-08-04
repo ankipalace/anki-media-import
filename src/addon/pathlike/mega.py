@@ -163,6 +163,7 @@ mega = Mega()
 
 
 class MegaRoot(RootPath):
+    raw: str
     name: str
     files: List["FileLike"]
 
@@ -171,6 +172,7 @@ class MegaRoot(RootPath):
     id: Optional[str]
 
     def __init__(self, url: str) -> None:
+        self.raw = url
         (public_handle, key, id) = mega.parse_url(url)
         self.public_handle = public_handle
         self.shared_key = base64_to_a32(key)

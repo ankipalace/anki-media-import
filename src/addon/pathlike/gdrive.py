@@ -96,6 +96,7 @@ gdrive = GDrive()
 
 
 class GDriveRoot(RootPath):
+    raw: str
     name: str
     files: List["FileLike"]
 
@@ -104,6 +105,7 @@ class GDriveRoot(RootPath):
     def __init__(self, url: str) -> None:
         if not API_KEY:
             raise Exception("No API Key Found!")
+        self.raw = url
         self.id = gdrive.parse_url(url)
         data = gdrive.get_metadata(self.id)
         self.name = data["name"]

@@ -7,12 +7,14 @@ from .errors import RootNotFoundError, IsAFileError
 
 
 class LocalRoot(RootPath):
+    raw: str
     name: str
     files: List["FileLike"]
 
     path: Path
 
     def __init__(self, path: Union[str, Path], recursive: bool = True) -> None:
+        self.raw = str(path)
         if isinstance(path, str):
             self.path = Path(path)
         else:

@@ -8,8 +8,9 @@ MEDIA_EXT: Tuple[str, ...] = aqt.editor.pics + aqt.editor.audio
 
 
 class RootPath(ABC):
-    files: List["FileLike"]
+    raw: str
     name: str
+    files: List["FileLike"]
 
     @abstractmethod
     def __init__(self, *args: Any, **kwargs: Any):

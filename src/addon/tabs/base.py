@@ -91,6 +91,9 @@ class ImportTab(QWidget):
         if not self.valid_path:
             tooltip(self.import_not_valid_tooltip)
             return
+        if self.rootpath.raw != self.path_input.text():
+            self.update_root_file()
+            return
         mw.progress.start(
             parent=mw, label="Starting import", immediate=True)
         import_media(self.rootpath, self.dialog.finish_import)
