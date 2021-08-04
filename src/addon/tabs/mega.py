@@ -24,6 +24,6 @@ class MegaTab(ImportTab):
     def on_btn(self) -> None:
         self.update_root_file()
 
-    def create_root_file(self, url: str) -> MegaRoot:
+    def create_root_file(self, url: str) -> "MegaRoot":
         from ..pathlike.mega import MegaRoot
         return MegaRoot(url)
