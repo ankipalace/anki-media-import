@@ -43,8 +43,8 @@ class LocalFile(FileLike):
     key: str  # == str(path)
     name: str
     extension: str
-    size: int
 
+    _size: Optional[int]
     _md5: Optional[str]
     path: Path
 
@@ -52,9 +52,15 @@ class LocalFile(FileLike):
         self.key = str(path)
         self.name = path.name
         self.extension = path.suffix[1:]
-        self.size = path.stat().st_size
         self.path = path
+        self._size = None
         self._md5 = None
+
+    @property
+    def size(self) -> int:  # type: ignore
+        if not self._size:
+            self._size = self.path.stat().st_size
+        return self._size
 
     @property
     def md5(self) -> str:
