@@ -1,12 +1,10 @@
 from typing import Optional, TYPE_CHECKING
 
 from anki.utils import isWin
-from aqt import mw
 from aqt.qt import *
 from aqt.utils import tooltip
 import aqt.editor
 
-from ..importing import import_media
 from ..pathlike import LocalRoot
 from .base import ImportTab
 if TYPE_CHECKING:

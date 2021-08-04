@@ -90,7 +90,6 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         log(f"{files_cnt.diff} files were skipped because they are identical.")
 
     # 4. Check collection.media if there is a file with same name.
-    # TODO: Allow user to rename/overwrite file
     name_conflicts = name_exists_in_collection(files_list)
     if len(name_conflicts):
         msg = f"{len(name_conflicts)} files have the same name as existing media files:"

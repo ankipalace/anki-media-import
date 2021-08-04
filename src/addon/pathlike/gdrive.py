@@ -6,7 +6,6 @@ import os
 from .base import FileLike, RootPath
 from .errors import *
 
-# TODO: (don't) handle google docs file
 
 try:
     from ..google_api_key import get_google_api_key  # type: ignore
@@ -123,7 +122,8 @@ class GDriveRoot(RootPath):
             if gdrive.is_folder(path):
                 if recursive:
                     self.search_files(files, path["id"], recursive=True)
-            elif self.has_media_ext(path["fileExtension"]):
+            elif path["fileExtension"] and self.has_media_ext(path["fileExtension"]):
+                # Google docs files don't have file extensions
                 file = GDriveFile(path)
                 files.append(file)
 
