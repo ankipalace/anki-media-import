@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..pathlike import GDriveRoot
+from ..pathlike.gdrive import GDriveRoot
 from .base import ImportTab
 if TYPE_CHECKING:
     from .base import ImportDialog

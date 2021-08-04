@@ -4,13 +4,13 @@ from aqt import mw
 from aqt.utils import openLink
 from aqt.qt import *
 
-from .dialog import ImportDialog
-
 
 import_dialog = None
 
 
 def open_import_dialog() -> None:
+    from .dialog import ImportDialog
+
     global import_dialog
     if import_dialog is None:
         import_dialog = ImportDialog()

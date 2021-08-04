@@ -5,7 +5,7 @@ from aqt.qt import *
 from aqt.utils import tooltip
 import aqt.editor
 
-from ..pathlike import LocalRoot
+from ..pathlike.local import LocalRoot
 from .base import ImportTab
 if TYPE_CHECKING:
     from .base import ImportDialog
@@ -34,7 +34,7 @@ class LocalTab(ImportTab):
         if path is not None:
             self.path_input.setText(path)
             self.update_root_file()
-    
+
     def on_input_change(self) -> None:
         self.update_root_file()
 

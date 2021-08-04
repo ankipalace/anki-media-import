@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
-from ..pathlike import MegaRoot
 from .base import ImportTab
 if TYPE_CHECKING:
     from .base import ImportDialog
+    from ..pathlike.mega import MegaRoot
 
 
 class MegaTab(ImportTab):
@@ -25,4 +25,5 @@ class MegaTab(ImportTab):
         self.update_root_file()
 
     def create_root_file(self, url: str) -> MegaRoot:
+        from ..pathlike.mega import MegaRoot
         return MegaRoot(url)
