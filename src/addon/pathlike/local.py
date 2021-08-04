@@ -3,7 +3,7 @@ from typing import List, Union, Optional
 from pathlib import Path
 
 from .base import RootPath, FileLike
-from .errors import RootNotFoundError, IsAFileError
+from .errors import RootNotFoundError, IsAFileError, MalformedURLError
 
 
 class LocalRoot(RootPath):
@@ -15,15 +15,18 @@ class LocalRoot(RootPath):
 
     def __init__(self, path: Union[str, Path], recursive: bool = True) -> None:
         self.raw = str(path)
-        if isinstance(path, str):
-            self.path = Path(path)
-        else:
-            self.path = path
-        if not self.path.is_dir():
-            if self.path.is_file():
-                raise IsAFileError()
+        try:
+            if isinstance(path, str):
+                self.path = Path(path)
             else:
-                raise RootNotFoundError()
+                self.path = path
+            if not self.path.is_dir():
+                if self.path.is_file():
+                    raise IsAFileError()
+                else:
+                    raise RootNotFoundError()
+        except OSError:
+            raise MalformedURLError()
         self.name = self.path.name
         self.files = self.list_files(recursive=recursive)
 
