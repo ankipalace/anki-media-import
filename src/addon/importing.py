@@ -60,10 +60,7 @@ class ImportInfo():
         if not self.prev_file_size and self.prev_time:
             return ""
         timedelta = (datetime.now() - self.prev_time)
-        print(timedelta, self.prev_file_size)
         estimate = timedelta * self.size / self.prev_file_size
-        print(estimate)
-        print((self.tot_size - self.size))
         return self._format_timedelta(estimate)
 
     @property

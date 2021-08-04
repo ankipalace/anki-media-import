@@ -60,7 +60,6 @@ class GDrive():
             body = res.json()["error"]
             code = body["code"]
         except:
-            print(res.text)
             raise RequestError(-1, res.text)
         try:
             error = body["errors"][0]
