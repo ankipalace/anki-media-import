@@ -220,12 +220,12 @@ class MegaFile(FileLike):
     id: str  # A string that can identify the file
     name: str
     extension: str
-    size: float
+    size: int
 
     key: Tuple[int, ...]
     root: MegaRoot
 
-    def __init__(self, root: MegaRoot, id: str, key: Tuple[int, ...], name: str, ext: str, size: float) -> None:
+    def __init__(self, root: MegaRoot, id: str, key: Tuple[int, ...], name: str, ext: str, size: int) -> None:
         self.root = root
         self.id = id
         self.key = key

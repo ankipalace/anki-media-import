@@ -16,22 +16,44 @@ class ImportResult(NamedTuple):
     success: bool
 
 
-class FilesCount():
+class ImportInfo():
+    """Handles files_list count and their size"""
     files: list
     tot: int
     prev: int
+
+    tot_size: int
+    size: int
 
     def __init__(self, files: list) -> None:
         self.files = files
         self.tot = len(files)
         self.prev = self.tot
         self.diff = 0
+        self.calculate_size()
+        self.tot_size = self.size
 
-    def update_diff(self) -> int:
+    def update_count(self) -> int:
         """ Returns `curr - prev`, then updates prev to curr """
         self.diff = self.prev - self.curr
         self.prev = self.curr
         return self.diff
+
+    def calculate_size(self) -> None:
+        self.size = 0
+        for file in self.files:
+            self.size += file.size
+
+    def update_size(self, file: FileLike) -> None:
+        self.size -= file.size
+
+    @property
+    def size_str(self) -> str:
+        return self._size_str(self.tot_size - self.size)
+
+    @property
+    def tot_size_str(self) -> str:
+        return self._size_str(self.tot_size)
 
     @property
     def curr(self) -> int:
@@ -40,6 +62,14 @@ class FilesCount():
     @property
     def left(self) -> int:
         return self.tot - self.curr
+
+    def _size_str(self, size: float) -> str:
+        """Prints size of imported files."""
+        for unit in ['Bytes', 'KB', 'MB', 'GB']:
+            if size < 1000:
+                return "%3.1f%s" % (size, unit)
+            size = size / 1000
+        return "%.1f%s" % (size, 'TB')
 
 
 def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
@@ -50,7 +80,7 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
 
     try:
         _import_media(logs, src, on_done)
-    except Exception as err:
+    except Exception as err:  # TODO: print stack trace as well.
         print(str(err))
         logs.append(str(err))
         res = ImportResult(logs, success=False)
@@ -70,8 +100,8 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
 
     # 1. Get the name of all media files.
     files_list = src.files
-    files_cnt = FilesCount(files_list)
-    log(f"{files_cnt.tot} media files found.")
+    info = ImportInfo(files_list)
+    log(f"{info.tot} media files found.")
 
     # 2. Normalize file names
     unnormalized = find_unnormalized_name(files_list)
@@ -86,8 +116,8 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
                       success=False)
         return
 
-    if files_cnt.update_diff():
-        log(f"{files_cnt.diff} files were skipped because they are identical.")
+    if info.update_count():
+        log(f"{info.diff} files were skipped because they are identical.")
 
     # 4. Check collection.media if there is a file with same name.
     name_conflicts = name_exists_in_collection(files_list)
@@ -107,18 +137,19 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
                           success=False)
             return
         mw.progress.start(parent=mw, label="Importing media", immediate=True)
-    if files_cnt.update_diff():
-        diff = files_cnt.diff - len(name_conflicts)
+    if info.update_count():
+        diff = info.diff - len(name_conflicts)
         log(f"{diff} files were skipped because they already exist in collection.")
 
-    if files_cnt.curr == 0:
+    if info.curr == 0:
         finish_import(
-            f"{files_cnt.tot} media files were imported", success=True)
+            f"{info.tot} media files were imported", success=True)
         return
 
     # 5. Add media files in chunk in background.
     # TODO: show estimated time left
-    log(f"{files_cnt.curr} media files will be processed.")
+    log(f"{info.curr} media files will be processed.")
+    info.calculate_size()
     MAX_ERRORS = 5
     error_cnt = 0  # Count of errors in succession
 
@@ -132,32 +163,35 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
                 error_cnt += 1
                 log("-"*16 + "\n" + str(err) + "\n" + "-"*16)
                 if error_cnt < MAX_ERRORS:
-                    if files_cnt.left < 10:
-                        log(f"{files_cnt.left} files were not imported.")
+                    if info.left < 10:
+                        log(f"{info.left} files were not imported.")
                         for file in files_list:
                             log(file.name)
-                    finish_import(f"{files_cnt.left} / {files_cnt.tot} media files were added.",
+                    finish_import(f"{info.left} / {info.tot} media files were imported.",
                                   success=False)
                     return
                 else:
                     files_list.append(file)
 
-        mw.progress.update(
-            label=f"Adding media files ({files_cnt.left} / {files_cnt.tot})",
-            value=files_cnt.left, max=files_cnt.tot)
-
         # Last file was added
         if len(files_list) == 0:
-            finish_import(f"{files_cnt.tot} media files were imported.",
+            finish_import(f"{info.tot} media files were imported.",
                           success=True)
             return
-
         # Abort import
         if mw.progress.want_cancel():
-            finish_import(f"Import aborted.\n{files_cnt.left} / {files_cnt.tot} media files were imported.",
+            finish_import(f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
                           success=False)
             return
+
+        progress_msg = (f"Adding media files ({info.left} / {info.tot})\n"
+                        f"{info.size_str} / {info.tot_size_str} downloaded.")
+        mw.progress.update(label=progress_msg,
+                           value=info.left,
+                           max=info.tot)
+
         file = files_list.pop(0)
+        info.update_size(file)
         mw.taskman.run_in_background(
             add_media, lambda fut: add_next_file(fut, file),
             args={"file": file})

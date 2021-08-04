@@ -43,7 +43,7 @@ class LocalFile(FileLike):
     key: str  # == str(path)
     name: str
     extension: str
-    size: float
+    size: int
 
     _md5: Optional[str]
     path: Path

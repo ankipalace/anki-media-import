@@ -24,7 +24,7 @@ class FileLike(ABC):
     id: str  # A string that can identify the file
     name: str
     extension: str
-    size: float
+    size: int
 
     @abstractmethod
     def read_bytes(self) -> bytes:

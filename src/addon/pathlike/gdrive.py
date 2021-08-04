@@ -122,7 +122,7 @@ class GDriveRoot(RootPath):
             if gdrive.is_folder(path):
                 if recursive:
                     self.search_files(files, path["id"], recursive=True)
-            elif path["fileExtension"] and self.has_media_ext(path["fileExtension"]):
+            elif ("fileExtension" in path) and self.has_media_ext(path["fileExtension"]):
                 # Google docs files don't have file extensions
                 file = GDriveFile(path)
                 files.append(file)
