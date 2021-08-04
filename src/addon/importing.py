@@ -3,6 +3,7 @@ from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple, Optio
 from requests.exceptions import RequestException
 from datetime import datetime, timedelta
 import unicodedata
+import traceback
 
 from anki.media import media_paths_from_col_path
 from aqt import mw
@@ -116,8 +117,11 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
 
     try:
         _import_media(logs, src, on_done)
-    except Exception as err:  # TODO: print stack trace as well.
+    except Exception as err:
+        tb = traceback.format_exc()
+        print(tb)
         print(str(err))
+        logs.append(tb)
         logs.append(str(err))
         res = ImportResult(logs, success=False)
         on_done(res)
@@ -183,7 +187,6 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         return
 
     # 5. Add media files in chunk in background.
-    # TODO: show estimated time left
     log(f"{info.curr} media files will be processed.")
     info.calculate_size()
     MAX_ERRORS = 5

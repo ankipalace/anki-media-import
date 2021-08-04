@@ -43,7 +43,6 @@ class GDrive():
         }).json()
 
     def download_file(self, id: str) -> bytes:
-        # TODO: https://cloud.google.com/blog/products/application-development/upcoming-changes-to-the-google-drive-api-and-google-picker-api
         url = f"{self.BASE_URL}/{id}"
         res = self.make_request(url, params={
             "alt": "media",
