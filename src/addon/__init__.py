@@ -7,7 +7,7 @@ libs_dir = Path(__file__).resolve().parent / "libs"
 sys.path.append(str(libs_dir))
 
 try:
-    import Crypto
+    import Crypto.Cipher
 except:
     from . import install_libs
 
