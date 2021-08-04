@@ -1,6 +1,7 @@
 from concurrent.futures import Future
 from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple, Optional
 from requests.exceptions import RequestException
+from datetime import datetime, timedelta
 import unicodedata
 
 from anki.media import media_paths_from_col_path
@@ -24,6 +25,8 @@ class ImportInfo():
 
     tot_size: int
     size: int
+    prev_time: datetime
+    prev_file_size: int
 
     def __init__(self, files: list) -> None:
         self.files = files
@@ -43,9 +46,24 @@ class ImportInfo():
         self.size = 0
         for file in self.files:
             self.size += file.size
+        self.prev_time = datetime.now()
+        self.prev_file_size = 0
 
     def update_size(self, file: FileLike) -> None:
         self.size -= file.size
+        self.prev_file_size = file.size
+        self.prev_time = datetime.now()
+
+    @property
+    def remaining_time_str(self) -> str:
+        if not self.prev_file_size and self.prev_time:
+            return ""
+        timedelta = (datetime.now() - self.prev_time)
+        print(timedelta, self.prev_file_size)
+        estimate = timedelta * self.size / self.prev_file_size
+        print(estimate)
+        print((self.tot_size - self.size))
+        return self._format_timedelta(estimate)
 
     @property
     def size_str(self) -> str:
@@ -62,6 +80,24 @@ class ImportInfo():
     @property
     def left(self) -> int:
         return self.tot - self.curr
+
+    def _format_timedelta(self, timedelta: timedelta) -> str:
+        tot_secs = timedelta.seconds
+        units = [60, 60*60, 60*60*24]
+        seconds = tot_secs % units[0]
+        minutes = (tot_secs % units[1]) // units[0]
+        hours = (tot_secs % units[2]) // units[1]
+        days = tot_secs // units[2]
+
+        if days:
+            time_str = f"{days}d {hours}h"
+        elif hours:
+            time_str = f"{hours}h {minutes}m"
+        elif minutes:
+            time_str = f"{minutes}m {seconds}s"
+        else:
+            time_str = f"{seconds}s"
+        return time_str
 
     def _size_str(self, size: float) -> str:
         """Prints size of imported files."""
@@ -185,7 +221,8 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
             return
 
         progress_msg = (f"Adding media files ({info.left} / {info.tot})\n"
-                        f"{info.size_str} / {info.tot_size_str} downloaded.")
+                        f"{info.size_str}/{info.tot_size_str} "
+                        f"({info.remaining_time_str} left)")
         mw.progress.update(label=progress_msg,
                            value=info.left,
                            max=info.tot)
