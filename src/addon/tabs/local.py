@@ -60,7 +60,7 @@ class LocalTab(ImportTab):
     def get_directory(self) -> Optional[str]:
         dialog = self.file_dialog()
         dialog.setFileMode(QFileDialog.Directory)
-        if dialog.exec_():
+        if dialog.exec():
             # This can return multiple paths onccasionally. Qt bug?
             if not len(dialog.selectedFiles()) == 1:
                 tooltip("Something went wrong. Please select the folder again.")
