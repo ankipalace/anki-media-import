@@ -38,7 +38,7 @@ class ImportInfo():
         self.tot_size = self.size
 
     def update_count(self) -> int:
-        """ Returns `curr - prev`, then updates prev to curr """
+        """ Returns `prev - curr`, then updates prev to curr """
         self.diff = self.prev - self.curr
         self.prev = self.curr
         return self.diff
