@@ -1,4 +1,4 @@
-# Obsfucate api key in a basic way
+# Obfuscates api key in a basic way
 # to prevent bots from grabbing keys.
 # Not intended to prevent manual grabbing.
 # Never use this for important api keys!
