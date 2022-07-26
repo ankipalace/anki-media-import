@@ -217,7 +217,11 @@ def _import_media(
                 f"{info.size_str}/{info.tot_size_str} "
                 f"({info.remaining_time_str} left)"
             )
-            mw.progress.update(label=progress_msg, value=info.left, max=info.tot)
+            mw.taskman.run_on_main(
+                lambda: mw.progress.update(
+                    label=progress_msg, value=info.left, max=info.tot
+                )
+            )
 
             file = files_list.pop(0)
             info.update_size(file)
