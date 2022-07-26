@@ -6,7 +6,7 @@ from pathlib import Path
 version_string = sys.argv[1]
 assert re.match(r"^(\d+).(\d+)$", version_string)
 
-addon_dir = Path(__file__).resolve().parents[1] / "src" / "addon"
+addon_dir = Path(__file__).resolve().parents[1] / "src"
 
 # Write version in manifest.json
 json_path = addon_dir / "manifest.json"
