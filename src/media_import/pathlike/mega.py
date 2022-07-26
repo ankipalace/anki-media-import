@@ -7,7 +7,13 @@ import re
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 from mega.errors import RequestError as MegaReqError
-from mega.crypto import a32_to_str, base64_to_a32, base64_url_decode, decrypt_attr, decrypt_key
+from mega.crypto import (
+    a32_to_str,
+    base64_to_a32,
+    base64_url_decode,
+    decrypt_attr,
+    decrypt_key,
+)
 
 from .base import RootPath, FileLike
 from .errors import *
@@ -34,12 +40,12 @@ class Mega:
                 r"mega.(?:io|nz|co\.nz)/file/[0-z-_]+#[0-z-_]+",
                 r"mega.(?:io|nz|co\.nz)/#![0-z-_]+[!#][0-z-_]+",
                 r"mega.(?:io|nz|co\.nz)/folder/[0-z-_]+#[0-z-_]+(?:/file/[0-z-_]+)+",
-                r"mega.(?:io|nz|co\.nz)/#F![0-z-_]+[!#][0-z-_]+(?:/file/[0-z-_]+)+"
+                r"mega.(?:io|nz|co\.nz)/#F![0-z-_]+[!#][0-z-_]+(?:/file/[0-z-_]+)+",
             ],
             "folder": [
                 r"mega.(?:io|nz|co\.nz)/folder/([0-z-_]+)#([0-z-_]+)(?:/folder/([0-z-_]+))*",
-                r"mega.(?:io|nz|co\.nz)/#F!([0-z-_]+)[!#]([0-z-_]+)(?:/folder/([0-z-_]+))*"
-            ]
+                r"mega.(?:io|nz|co\.nz)/#F!([0-z-_]+)[!#]([0-z-_]+)(?:/folder/([0-z-_]+))*",
+            ],
         }
         self.URL_PATTERNS: Dict[str, list] = {"file": [], "folder": []}
         for type in self.REGEXP:
@@ -47,9 +53,7 @@ class Mega:
                 self.URL_PATTERNS[type].append(re.compile(regexp))
 
     def api_request(self, data: Union[dict, list], root_folder: Optional[str]) -> dict:
-        params: Dict[str, Any] = {
-            "id": self.sequence_num
-        }
+        params: Dict[str, Any] = {"id": self.sequence_num}
         if root_folder:
             params["n"] = root_folder
         self.sequence_num += 1
@@ -68,8 +72,7 @@ class Mega:
 
         try:
             if isinstance(json_resp, list):
-                int_resp = json_resp[0] if isinstance(json_resp[0],
-                                                      int) else None
+                int_resp = json_resp[0] if isinstance(json_resp[0], int) else None
             elif isinstance(json_resp, int):
                 int_resp = json_resp
 
@@ -79,12 +82,10 @@ class Mega:
             raise MegaReqError(int_resp)
         return json_resp[0]
 
-    def download_file(self, root_folder: str, file_id: str, file_key: Tuple[int, ...]) -> bytes:
-        file_data = self.api_request({
-            'a': 'g',
-            'g': 1,
-            'n': file_id
-        }, root_folder)
+    def download_file(
+        self, root_folder: str, file_id: str, file_key: Tuple[int, ...]
+    ) -> bytes:
+        file_data = self.api_request({"a": "g", "g": 1, "n": file_id}, root_folder)
 
         k = self.xor_key(file_key)
         iv = file_key[4:6] + (0, 0)
@@ -92,9 +93,9 @@ class Mega:
         # Seems to happens sometime... When this occurs, files are
         # inaccessible also in the official also in the official web app.
         # Strangely, files can come back later.
-        if 'g' not in file_data:
-            raise MegaReqError('File not accessible anymore')
-        file_url = file_data['g']
+        if "g" not in file_data:
+            raise MegaReqError("File not accessible anymore")
+        file_url = file_data["g"]
         encrypted_file = requests.get(file_url).content
 
         k_str = a32_to_str(k)
@@ -120,13 +121,15 @@ class Mega:
         return nodes
 
     def parse_url(self, url: str) -> Tuple[str, str, Optional[str]]:
-        "Returns (public_handle, key, id) if valid. If not returns None. If not subfolder, id=None. "
+        "Returns (public_handle, key, id) if valid. If not returns None. If not subfolder, id=None."
+
         def get_m(patterns: list) -> Optional[re.Match]:
             for pattern in patterns:
                 m = re.search(pattern, url)
                 if m:
                     return m
             return None
+
         m = get_m(self.URL_PATTERNS["file"])
         if m:  # The order between checking file and folder should not be reversed
             raise IsAFileError()
@@ -150,7 +153,9 @@ class Mega:
         encrypted_key = base64_to_a32(key_data.split(":")[1])
         return decrypt_key(encrypted_key, shared_key)
 
-    def decrypt_attribute(self, attrs_data: str, key: Tuple[int, ...], is_file: bool = True) -> Dict[str, Any]:
+    def decrypt_attribute(
+        self, attrs_data: str, key: Tuple[int, ...], is_file: bool = True
+    ) -> Dict[str, Any]:
         if is_file:
             key = self.xor_key(key)
         return decrypt_attr(base64_url_decode(attrs_data), key)
@@ -197,7 +202,9 @@ class MegaRoot(RootPath):
         self.files = []
         self.search_files(nodes, root_id, recursive=True)
 
-    def search_files(self, nodes: List[Dict[str, Any]], id: str, recursive: bool) -> None:
+    def search_files(
+        self, nodes: List[Dict[str, Any]], id: str, recursive: bool
+    ) -> None:
         for node in nodes:
             if node["p"] != id:  # Node is not in this folder 'id'
                 continue
@@ -208,13 +215,19 @@ class MegaRoot(RootPath):
             key = mega.decrypt_node_key(node["k"], self.shared_key)
             attrs = mega.decrypt_attribute(node["a"], key)
             name = attrs["n"]
-            if not '.' in name:
+            if not "." in name:
                 continue
             ext = name.split(".")[-1]
             if not self.has_media_ext(ext):
                 continue
-            file = MegaFile(root=self, id=node["h"], key=key,
-                            name=attrs["n"], ext=ext, size=node["s"])
+            file = MegaFile(
+                root=self,
+                id=node["h"],
+                key=key,
+                name=attrs["n"],
+                ext=ext,
+                size=node["s"],
+            )
             self.files.append(file)
 
 
@@ -227,7 +240,15 @@ class MegaFile(FileLike):
     key: Tuple[int, ...]
     root: MegaRoot
 
-    def __init__(self, root: MegaRoot, id: str, key: Tuple[int, ...], name: str, ext: str, size: int) -> None:
+    def __init__(
+        self,
+        root: MegaRoot,
+        id: str,
+        key: Tuple[int, ...],
+        name: str,
+        ext: str,
+        size: int,
+    ) -> None:
         self.root = root
         self.id = id
         self.key = key
