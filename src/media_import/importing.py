@@ -195,7 +195,9 @@ def _import_media(
     MAX_ERRORS = 5
     error_cnt = 0  # Count of errors in succession
 
-    def import_files_list(files_list=files_list, info=info) -> None:
+    def import_files_list(
+        files_list: List[FileLike] = files_list, info: ImportInfo = info
+    ) -> None:
         nonlocal error_cnt
 
         while True:
@@ -244,7 +246,7 @@ def _import_media(
                 else:
                     files_list.append(file)
 
-    def on_import_done(future: Future):
+    def on_import_done(future: Future) -> None:
         try:
             future.result()
         except Exception as err:

@@ -6,8 +6,8 @@ import re
 
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
-from mega.errors import RequestError as MegaReqError
-from mega.crypto import (
+from mega.errors import RequestError as MegaReqError  # type: ignore
+from mega.crypto import (  # type: ignore
     a32_to_str,
     base64_to_a32,
     base64_url_decode,

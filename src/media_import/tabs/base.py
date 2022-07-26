@@ -72,12 +72,12 @@ class ImportTab(QWidget):
         path_input = QLineEdit()
         self.path_input = path_input
         path_input.setMinimumWidth(200)
-        path_input.textEdited.connect(self.on_input_change)
+        path_input.textEdited.connect(self.on_input_change) # type: ignore
         main_grid.addWidget(path_input, 0, 2)
 
         btn = QPushButton(self.button_text)
         self.btn = btn
-        btn.clicked.connect(self.on_btn)
+        btn.clicked.connect(self.on_btn) # type: ignore
         main_grid.addWidget(btn, 0, 3)
 
         sub_text = small_qlabel(self.empty_input_msg)
