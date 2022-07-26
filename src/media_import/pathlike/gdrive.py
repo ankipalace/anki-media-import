@@ -35,17 +35,27 @@ class GDrive:
             url, params={"fields": self.FIELDS_STR, "key": API_KEY}
         ).json()
 
-    def list_paths(self, id: str) -> dict:
+    def list_paths(self, id: str) -> List[dict]:
         url = self.BASE_URL
-        result = self.make_request(
-            url,
-            params={
-                "q": f"'{id}' in parents",
-                "fields": "files({})".format(self.FIELDS_STR),
-                "key": API_KEY,
-                "pageSize": 1000,
-            },
-        ).json()
+        result = []
+        page_token = None
+        while True:
+            data = self.make_request(
+                url,
+                params={
+                    "q": f"'{id}' in parents",
+                    "fields": "nextPageToken,files({})".format(self.FIELDS_STR),
+                    "key": API_KEY,
+                    "pageSize": 1000,
+                    "pageToken": page_token,
+                },
+            ).json()
+            result += data["files"]
+            if not "nextPageToken" in data:
+                break
+
+            page_token = data["nextPageToken"]
+
         return result
 
     def download_file(self, id: str) -> bytes:
@@ -124,8 +134,7 @@ class GDriveRoot(RootPath):
         return files
 
     def search_files(self, files: List["FileLike"], id: str, recursive: bool) -> None:
-        res = gdrive.list_paths(id)
-        paths = res["files"]
+        paths = gdrive.list_paths(id)
         for path in paths:
             if gdrive.is_folder(path):
                 if recursive:
