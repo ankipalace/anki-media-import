@@ -195,18 +195,41 @@ def _import_media(
     MAX_ERRORS = 5
     error_cnt = 0  # Count of errors in succession
 
-    def add_next_file(fut: Optional[Future], file: Optional[FileLike]) -> None:
+    def import_files_list(files_list=files_list, info=info) -> None:
         nonlocal error_cnt
-        if fut is not None:
+
+        while True:
+            # Last file was added
+            if len(files_list) == 0:
+                finish_import(f"{info.tot} media files were imported.", success=True)
+                return
+
+            # Abort import
+            if mw.progress.want_cancel():
+                finish_import(
+                    f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
+                    success=False,
+                )
+                return
+
+            progress_msg = (
+                f"Adding media files ({info.left} / {info.tot})\n"
+                f"{info.size_str}/{info.tot_size_str} "
+                f"({info.remaining_time_str} left)"
+            )
+            mw.progress.update(label=progress_msg, value=info.left, max=info.tot)
+
+            file = files_list.pop(0)
+            info.update_size(file)
+
             try:
-                fut.result()  # Check if add_media raised an error
-                error_cnt = 0
+                add_media(file)
             except (AddonError, RequestException) as err:
                 error_cnt += 1
                 log("-" * 16 + "\n" + str(err) + "\n" + "-" * 16)
-                if error_cnt < MAX_ERRORS:
+                if error_cnt > MAX_ERRORS:
+                    log(f"{info.left} files were not imported.")
                     if info.left < 10:
-                        log(f"{info.left} files were not imported.")
                         for file in files_list:
                             log(file.name)
                     finish_import(
@@ -217,35 +240,13 @@ def _import_media(
                 else:
                     files_list.append(file)
 
-        # Last file was added
-        if len(files_list) == 0:
-            finish_import(f"{info.tot} media files were imported.", success=True)
-            return
-        # Abort import
-        if mw.progress.want_cancel():
-            finish_import(
-                f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
-                success=False,
-            )
-            return
+    def on_import_done(future: Future):
+        try:
+            future.result()
+        except Exception as err:
+            raise err
 
-        progress_msg = (
-            f"Adding media files ({info.left} / {info.tot})\n"
-            f"{info.size_str}/{info.tot_size_str} "
-            f"({info.remaining_time_str} left)"
-        )
-        mw.progress.update(label=progress_msg, value=info.left, max=info.tot)
-
-        file = files_list.pop(0)
-        info.update_size(file)
-
-        add_media(file) 
-        add_next_file(fut, file)
-
-    # mw.taskman.run_in_background(
-    #     add_media, lambda fut: add_next_file(fut, file), args={"file": file}
-    # )
-    add_next_file(None, None)
+    mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
