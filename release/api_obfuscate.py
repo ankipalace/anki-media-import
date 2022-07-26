@@ -1,4 +1,4 @@
-# Obsfucate api key in a basic way
+# Obfuscates api key in a basic way
 # to prevent bots from grabbing keys.
 # Not intended to prevent manual grabbing.
 # Never use this for important api keys!
@@ -9,7 +9,7 @@ import sys
 
 google_api_key = sys.argv[1]
 root_path = Path(__file__).resolve().parents[1]
-google_api_file = root_path / "src" / "addon" / "google_api_key.py"
+google_api_file = root_path / "src" / "media_import" / "google_api_key.py"
 
 
 chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"

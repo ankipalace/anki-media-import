@@ -2,7 +2,7 @@ meta.json
 *.ankiaddon
 google_api_key.py
 
-src/addon/libs/
+src/media_import/libs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

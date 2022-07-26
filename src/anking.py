@@ -1,3 +1,4 @@
+from typing import Callable
 from aqt import mw
 from aqt.utils import openLink
 from aqt.qt import QAction, QMenu
@@ -70,25 +71,8 @@ def get_anking_menu() -> QMenu:
 ########################################
 
 
-def setupMenu() -> None:
+def setupMenu(handler: Callable[[], None]) -> None:
     menu = get_anking_menu()
     a = QAction("Import Media", mw)
-    a.triggered.connect(open_import_dialog)
+    a.triggered.connect(handler)
     menu.addAction(a)
-
-
-import_dialog = None
-
-
-def open_import_dialog() -> None:
-    from .dialog import ImportDialog
-
-    global import_dialog
-    if import_dialog is None:
-        import_dialog = ImportDialog()
-    if not import_dialog.isVisible():
-        import_dialog.show()
-    import_dialog.activateWindow()
-
-
-setupMenu()
