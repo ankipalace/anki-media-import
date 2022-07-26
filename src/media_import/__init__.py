@@ -11,4 +11,4 @@ try:
 except:
     from . import install_libs
 
-from .ui import open_import_dialog
+from .ui import open_import_dialog, ImportDialog
