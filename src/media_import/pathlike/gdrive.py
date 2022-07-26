@@ -43,6 +43,7 @@ class GDrive:
                 "q": f"'{id}' in parents",
                 "fields": "files({})".format(self.FIELDS_STR),
                 "key": API_KEY,
+                "pageSize": 1000,
             },
         ).json()
         return result
