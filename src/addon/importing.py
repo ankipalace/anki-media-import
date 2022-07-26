@@ -178,6 +178,9 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         diff = info.diff - len(name_conflicts)
         log(f"{diff} files were skipped because they already exist in collection.")
 
+    # remove name conflicting files from total file count
+    info.tot = len(info.files)
+
     if info.curr == 0:
         finish_import(
             f"{info.tot} media files were imported", success=True)
