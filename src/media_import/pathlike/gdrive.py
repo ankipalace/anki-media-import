@@ -9,45 +9,47 @@ from .errors import *
 
 try:
     from ..google_api_key import get_google_api_key  # type: ignore
+
     API_KEY = get_google_api_key()
 except:  # Not production?
     try:
-        API_KEY = os.environ['GOOGLE_API_KEY']
+        API_KEY = os.environ["GOOGLE_API_KEY"]
     except:
         API_KEY = None
 
 
-class GDrive():
+class GDrive:
     REGEXP = r"drive.google.com/drive/folders/([^?]*)(?:\?|$)"
     FILE_REGEXP = r"drive.google.com/drive/file/"
     URL_PATTERN = re.compile(REGEXP)
     FILE_URL_PATTERN = re.compile(FILE_REGEXP)
 
     BASE_URL = "https://www.googleapis.com/drive/v3/files"
-    FIELDS_STR = ','.join(["id", "name", "md5Checksum",
-                           "mimeType", "fileExtension", "size"])
+    FIELDS_STR = ",".join(
+        ["id", "name", "md5Checksum", "mimeType", "fileExtension", "size"]
+    )
 
     def get_metadata(self, id: str) -> dict:
         url = f"{self.BASE_URL}/{id}"
-        return self.make_request(url, params={
-            "fields": self.FIELDS_STR,
-            "key": API_KEY
-        }).json()
+        return self.make_request(
+            url, params={"fields": self.FIELDS_STR, "key": API_KEY}
+        ).json()
 
     def list_paths(self, id: str) -> dict:
         url = self.BASE_URL
-        return self.make_request(url, params={
-            "q": f"'{id}' in parents",
-            "fields": "files({})".format(self.FIELDS_STR),
-            "key": API_KEY
-        }).json()
+        result = self.make_request(
+            url,
+            params={
+                "q": f"'{id}' in parents",
+                "fields": "files({})".format(self.FIELDS_STR),
+                "key": API_KEY,
+            },
+        ).json()
+        return result
 
     def download_file(self, id: str) -> bytes:
         url = f"{self.BASE_URL}/{id}"
-        res = self.make_request(url, params={
-            "alt": "media",
-            "key": API_KEY
-        })
+        res = self.make_request(url, params={"alt": "media", "key": API_KEY})
         return res.content
 
     def make_request(self, url: str, params: dict) -> requests.Response:
@@ -72,7 +74,11 @@ class GDrive():
             raise RootNotFoundError(code, message)
         elif code in range(500, 505):
             raise ServerError(code, message)
-        elif code in (403, 429) and reason in ("userRateLimitExceeded", "rateLimitExceeded", "dailyLimitExceeded"):
+        elif code in (403, 429) and reason in (
+            "userRateLimitExceeded",
+            "rateLimitExceeded",
+            "dailyLimitExceeded",
+        ):
             raise RateLimitError(code, message)
         raise RequestError(code, message)
 
@@ -80,7 +86,7 @@ class GDrive():
         return pathdata["mimeType"] == "application/vnd.google-apps.folder"
 
     def parse_url(self, url: str) -> str:
-        """ Format: https://drive.google.com/drive/folders/{gdrive_id}?params """
+        """Format: https://drive.google.com/drive/folders/{gdrive_id}?params"""
         m = re.search(self.URL_PATTERN, url)
         if m:
             return m.group(1)
@@ -123,7 +129,9 @@ class GDriveRoot(RootPath):
             if gdrive.is_folder(path):
                 if recursive:
                     self.search_files(files, path["id"], recursive=True)
-            elif ("fileExtension" in path) and self.has_media_ext(path["fileExtension"]):
+            elif ("fileExtension" in path) and self.has_media_ext(
+                path["fileExtension"]
+            ):
                 # Google docs files don't have file extensions
                 file = GDriveFile(path)
                 files.append(file)
@@ -141,7 +149,8 @@ class GDriveFile(FileLike):
     def __init__(self, data: dict) -> None:
         if not data:
             raise ValueError(
-                "Either data or id should be passed when initializing GDrivePath.")
+                "Either data or id should be passed when initializing GDrivePath."
+            )
         self.path = data["id"]
         self.name = data["name"]
         self.extension = data["fileExtension"]
