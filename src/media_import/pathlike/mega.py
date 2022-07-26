@@ -63,19 +63,21 @@ class Mega:
             data = [data]
 
         url = r"https://g.api.mega.co.nz/cs"
-        response = requests.post(
-            url,
-            params=params,
-            data=json.dumps(data)
-        )
-        json_resp = json.loads(response.text)
+        response = requests.post(url, params=params, data=json.dumps(data))
+
+        if not response.ok:
+            raise RequestError(response.status_code, response.reason)
+
+        try:
+            json_resp = json.loads(response.text)
+        except json.JSONDecodeError:
+            raise RequestError(response.status_code, response.reason)
 
         try:
             if isinstance(json_resp, list):
                 int_resp = json_resp[0] if isinstance(json_resp[0], int) else None
             elif isinstance(json_resp, int):
                 int_resp = json_resp
-
         except IndexError:
             int_resp = None
         if int_resp is not None:
