@@ -40,26 +40,31 @@ def test_mega_import(anki_session: AnkiSession) -> None:
         _test_import(root, mw)
 
 
-def _test_import(root, mw: AnkiQt):
+def _test_import(root, mw: AnkiQt) -> None:
     from src.media_import.importing import ImportResult, import_media
 
     on_done_was_called = False
+
+    media_dir = Path(mw.col.media.dir())
 
     def on_done(result: ImportResult):
         nonlocal on_done_was_called
         on_done_was_called = True
         assert result.success
-        assert set(get_filenames_in_collection(mw.col)) == set(
+        assert set(get_filenames_in_collection(media_dir)) == set(
             ["test1.png", "test2.png", "test3.jpg"]
         )
 
     import_media(root, on_done=on_done)
 
+    # wait for the import to finish and for the on_done callback to be called
     taskman: TaskManager = mw.taskman
     taskman._executor.shutdown(wait=True)
+    while taskman._closures:
+        taskman._on_closures_pending()
 
     assert on_done_was_called
 
 
-def get_filenames_in_collection(col: Collection):
-    return [x.name for x in Path(col.media.dir()).glob("*")]
+def get_filenames_in_collection(media_dir: Path) -> list[str]:
+    return [x.name for x in media_dir.glob("*")]
