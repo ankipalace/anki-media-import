@@ -17,7 +17,7 @@ def create_get_help_submenu(parent: QMenu) -> QMenu:
     submenu = QMenu(submenu_name, parent)
     for name, url in menu_options:
         act = QAction(name, mw)
-        act.triggered.connect(lambda _, u=url: openLink(u))
+        act.triggered.connect(lambda _, u=url: openLink(u)) # type: ignore
         submenu.addAction(act)
     return submenu
 
@@ -74,5 +74,5 @@ def get_anking_menu() -> QMenu:
 def setupMenu(handler: Callable[[], None]) -> None:
     menu = get_anking_menu()
     a = QAction("Import Media", mw)
-    a.triggered.connect(handler)
+    a.triggered.connect(handler) # type: ignore
     menu.addAction(a)

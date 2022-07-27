@@ -1,10 +1,12 @@
+from typing import List
+
 from anki.media import media_paths_from_col_path
 from aqt import mw
 from aqt.qt import *
 from aqt.utils import openFolder, restoreGeom, saveGeom
 
 from .importing import ImportResult
-from .tabs import ImportTab, LocalTab, GDriveTab, MegaTab
+from .tabs import GDriveTab, ImportTab, LocalTab, MegaTab
 
 
 class ImportResultDialog(QMessageBox):
@@ -28,7 +30,6 @@ class ImportResultDialog(QMessageBox):
 
 
 class ImportDialog(QDialog):
-
     def __init__(self) -> None:
         QDialog.__init__(self, mw, Qt.WindowType.Window)
         self.setWindowTitle("Import Media")
@@ -54,27 +55,26 @@ class ImportDialog(QDialog):
         main_tab.addTab(self.gdrive_tab, "Google Drive")
         self.mega_tab = MegaTab(self)
         main_tab.addTab(self.mega_tab, "Mega")
-        self.tabs = [self.local_tab, self.gdrive_tab, self.mega_tab]
+        self.tabs: List[ImportTab] = [self.local_tab, self.gdrive_tab, self.mega_tab]
 
     def setup_buttons(self) -> None:
         button_row = QHBoxLayout()
         self.main_layout.addLayout(button_row)
 
         media_dir_btn = QPushButton("Open Media Folder")
-        media_dir_btn.clicked.connect(self.open_media_dir)
+        media_dir_btn.clicked.connect(self.open_media_dir)  # type: ignore
         button_row.addWidget(media_dir_btn)
 
         button_row.addStretch(1)
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.close)
+        cancel_btn.clicked.connect(self.close)  # type: ignore
         button_row.addWidget(cancel_btn)
 
         import_btn = QPushButton("Import")
-        import_btn.clicked.connect(self.on_import)
+        import_btn.clicked.connect(self.on_import)  # type: ignore
         button_row.addWidget(import_btn)
 
     def finish_import(self, result: ImportResult) -> None:
-        mw.progress.finish()
         if result.success:
             ImportResultDialog(mw, result).exec()
             self.close()

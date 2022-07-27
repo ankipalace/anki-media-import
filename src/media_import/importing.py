@@ -1,5 +1,13 @@
 from concurrent.futures import Future
-from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple, Optional
+from typing import (
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Sequence,
+    NamedTuple,
+    Tuple,
+)
 from requests.exceptions import RequestException
 from datetime import datetime, timedelta
 import unicodedata
@@ -18,8 +26,9 @@ class ImportResult(NamedTuple):
     success: bool
 
 
-class ImportInfo():
+class ImportInfo:
     """Handles files_list count and their size"""
+
     files: list
     tot: int
     prev: int
@@ -38,7 +47,7 @@ class ImportInfo():
         self.tot_size = self.size
 
     def update_count(self) -> int:
-        """ Returns `prev - curr`, then updates prev to curr """
+        """Returns `prev - curr`, then updates prev to curr"""
         self.diff = self.prev - self.curr
         self.prev = self.curr
         return self.diff
@@ -59,7 +68,7 @@ class ImportInfo():
     def remaining_time_str(self) -> str:
         if not self.prev_file_size and self.prev_time:
             return ""
-        timedelta = (datetime.now() - self.prev_time)
+        timedelta = datetime.now() - self.prev_time
         estimate = timedelta * self.size / self.prev_file_size
         return self._format_timedelta(estimate)
 
@@ -81,7 +90,7 @@ class ImportInfo():
 
     def _format_timedelta(self, timedelta: timedelta) -> str:
         tot_secs = timedelta.seconds
-        units = [60, 60*60, 60*60*24]
+        units = [60, 60 * 60, 60 * 60 * 24]
         seconds = tot_secs % units[0]
         minutes = (tot_secs % units[1]) // units[0]
         hours = (tot_secs % units[2]) // units[1]
@@ -99,21 +108,26 @@ class ImportInfo():
 
     def _size_str(self, size: float) -> str:
         """Prints size of imported files."""
-        for unit in ['Bytes', 'KB', 'MB', 'GB']:
+        for unit in ["Bytes", "KB", "MB", "GB"]:
             if size < 1000:
                 return "%3.1f%s" % (size, unit)
             size = size / 1000
-        return "%.1f%s" % (size, 'TB')
+        return "%.1f%s" % (size, "TB")
 
 
 def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
     """
-    Import media from a directory, and its subdirectories. 
+    Import media from a directory, and its subdirectories.
     """
-    logs: List[str] = []
 
+    def finish_import(result: ImportResult) -> None:
+        mw.progress.finish()
+        on_done(result)
+
+    logs: List[str] = []
+    mw.progress.start(parent=mw, label="Importing media", immediate=True)
     try:
-        _import_media(logs, src, on_done)
+        _import_media(logs, src, finish_import)
     except Exception as err:
         tb = traceback.format_exc()
         print(tb)
@@ -121,11 +135,12 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
         logs.append(tb)
         logs.append(str(err))
         res = ImportResult(logs, success=False)
-        on_done(res)
+        finish_import(res)
 
 
-def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
-
+def _import_media(
+    logs: List[str], src: RootPath, on_done: Callable[[ImportResult], None]
+) -> None:
     def log(msg: str) -> None:
         print(f"Media Import: {msg}")
         logs.append(msg)
@@ -143,14 +158,15 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
     # 2. Normalize file names
     unnormalized = find_unnormalized_name(files_list)
     if len(unnormalized):
-        finish_import(f"{len(unnormalized)} files have invalid file names: {unnormalized}",
-                      success=False)
+        finish_import(
+            f"{len(unnormalized)} files have invalid file names: {unnormalized}",
+            success=False,
+        )
         return
 
     # 3. Make sure there isn't a name conflict within new files.
     if name_conflict_exists(files_list):
-        finish_import("There are multiple files with same filename.",
-                      success=False)
+        finish_import("There are multiple files with same filename.", success=False)
         return
 
     if info.update_count():
@@ -164,14 +180,16 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
         file_names_str = ""
         for file in name_conflicts:
             file_names_str += file.name + "\n"
-        log(file_names_str + "-"*16)
+        log(file_names_str + "-" * 16)
         ask_msg = msg + "\nDo you want to import the rest of the files?"
-        diag = askUserDialog(
-            ask_msg, buttons=["Abort Import", "Continue Import"])
-        mw.progress.finish()
+        mw.progress.finish()  # Close progress window for askUserDialog
+        diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
         if diag.run() == "Abort Import":
-            finish_import("Aborted import due to name conflict with existing media",
-                          success=False)
+            # finish_import calls mw.progress.finish()
+            mw.progress.start(parent=mw)
+            finish_import(
+                "Aborted import due to name conflict with existing media", success=False
+            )
             return
         mw.progress.start(parent=mw, label="Importing media", immediate=True)
     if info.update_count():
@@ -182,61 +200,72 @@ def _import_media(logs: List[str], src: RootPath, on_done: Callable[[ImportResul
     info.tot = len(info.files)
 
     if info.curr == 0:
-        finish_import(
-            f"{info.tot} media files were imported", success=True)
+        finish_import(f"{info.tot} media files were imported", success=True)
         return
 
     # 5. Add media files in chunk in background.
     log(f"{info.curr} media files will be processed.")
     info.calculate_size()
-    MAX_ERRORS = 5
-    error_cnt = 0  # Count of errors in succession
 
-    def add_next_file(fut: Optional[Future], file: Optional[FileLike]) -> None:
-        nonlocal error_cnt
-        if fut is not None:
+    def import_files_list(
+        files_list: List[FileLike] = files_list, info: ImportInfo = info
+    ) -> Tuple[bool, str]:
+        """returns (is_success, result msg)"""
+        MAX_ERRORS = 5
+        error_cnt = 0  # Count of errors in succession
+
+        while True:
+            # Last file was added
+            if len(files_list) == 0:
+                return (True, f"{info.tot} media files were imported.")
+
+            # Abort import
+            if mw.progress.want_cancel():
+                return (
+                    False,
+                    f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
+                )
+
+            progress_msg = (
+                f"Adding media files ({info.left} / {info.tot})\n"
+                f"{info.size_str}/{info.tot_size_str} "
+                f"({info.remaining_time_str} left)"
+            )
+            mw.taskman.run_on_main(
+                lambda: mw.progress.update(
+                    label=progress_msg, value=info.left, max=info.tot
+                )
+            )
+
+            file = files_list.pop(0)
+            info.update_size(file)
+
             try:
-                fut.result()  # Check if add_media raised an error
-                error_cnt = 0
+                add_media(file)
+                error_cnt = 0  # reset error_cnt on success
             except (AddonError, RequestException) as err:
                 error_cnt += 1
-                log("-"*16 + "\n" + str(err) + "\n" + "-"*16)
-                if error_cnt < MAX_ERRORS:
+                log("-" * 16 + "\n" + str(err) + "\n" + "-" * 16)
+                if error_cnt > MAX_ERRORS:
+                    log(f"{info.left} files were not imported.")
                     if info.left < 10:
-                        log(f"{info.left} files were not imported.")
                         for file in files_list:
                             log(file.name)
-                    finish_import(f"{info.left} / {info.tot} media files were imported.",
-                                  success=False)
-                    return
+                    return (
+                        False,
+                        f"{info.left} / {info.tot} media files were imported.",
+                    )
                 else:
                     files_list.append(file)
 
-        # Last file was added
-        if len(files_list) == 0:
-            finish_import(f"{info.tot} media files were imported.",
-                          success=True)
-            return
-        # Abort import
-        if mw.progress.want_cancel():
-            finish_import(f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
-                          success=False)
-            return
+    def on_import_done(future: Future) -> None:
+        try:
+            (success, msg) = future.result()
+            finish_import(msg, success)
+        except Exception as err:
+            raise err
 
-        progress_msg = (f"Adding media files ({info.left} / {info.tot})\n"
-                        f"{info.size_str}/{info.tot_size_str} "
-                        f"({info.remaining_time_str} left)")
-        mw.progress.update(label=progress_msg,
-                           value=info.left,
-                           max=info.tot)
-
-        file = files_list.pop(0)
-        info.update_size(file)
-        mw.taskman.run_in_background(
-            add_media, lambda fut: add_next_file(fut, file),
-            args={"file": file})
-
-    add_next_file(None, None)
+    mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
@@ -252,7 +281,7 @@ def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
 
 def name_conflict_exists(files_list: List[FileLike]) -> bool:
     """Returns True if there are different files with the same name.
-       And removes identical files from files_list so only one remains. """
+    And removes identical files from files_list so only one remains."""
     file_names: Dict[str, FileLike] = {}  # {file_name: file_path}
     identical: List[int] = []
 
@@ -272,9 +301,8 @@ def name_conflict_exists(files_list: List[FileLike]) -> bool:
 
 def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     """Returns list of files whose names conflict with existing media files.
-       And remove files if identical file exists in collection. """
-    media_dir = LocalRoot(media_paths_from_col_path(
-        mw.col.path)[0], recursive=False)
+    And remove files if identical file exists in collection."""
+    media_dir = LocalRoot(media_paths_from_col_path(mw.col.path)[0], recursive=False)
     collection_file_paths = media_dir.files
     collection_files = {file.name: file for file in collection_file_paths}
 
@@ -294,9 +322,10 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
 
 def add_media(file: FileLike) -> None:
     """
-        Tries to add media with the same basename.
-        But may change the name if it overlaps with existing media.
-        Therefore make sure there isn't an existing media with the same name!
+    Tries to add media with the same basename.
+    But may change the name if it overlaps with existing media.
+    Therefore make sure there isn't an existing media with the same name!
     """
-    new_name = mw.col.media.write_data(file.name, file.read_bytes())
+    data = file.read_bytes()
+    new_name = mw.col.media.write_data(file.name, data)
     assert new_name == file.name  # TODO: write an error dialogue?
