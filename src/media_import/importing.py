@@ -205,14 +205,13 @@ def _import_media(
     # 5. Add media files in chunk in background.
     log(f"{info.curr} media files will be processed.")
     info.calculate_size()
-    MAX_ERRORS = 5
-    error_cnt = 0  # Count of errors in succession
 
     def import_files_list(
         files_list: List[FileLike] = files_list, info: ImportInfo = info
     ) -> Tuple[bool, str]:
         """returns (is_success, result msg)"""
-        nonlocal error_cnt
+        MAX_ERRORS = 5
+        error_cnt = 0  # Count of errors in succession
 
         while True:
             # Last file was added
@@ -242,6 +241,7 @@ def _import_media(
 
             try:
                 add_media(file)
+                error_cnt = 0  # reset error_cnt on success
             except (AddonError, RequestException) as err:
                 error_cnt += 1
                 log("-" * 16 + "\n" + str(err) + "\n" + "-" * 16)
