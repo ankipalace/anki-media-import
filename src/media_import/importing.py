@@ -186,7 +186,7 @@ def _import_media(
         diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
         if diag.run() == "Abort Import":
             # finish_import calls mw.progress.finish()
-            mw.progress.start(parent=mw, immediate=True)
+            mw.progress.start(parent=mw)
             finish_import(
                 "Aborted import due to name conflict with existing media", success=False
             )
