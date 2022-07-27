@@ -94,8 +94,6 @@ class ImportTab(QWidget):
         if self.rootpath.raw != self.path_input.text():
             self.update_root_file()
             return
-        mw.progress.start(
-            parent=mw, label="Starting import", immediate=True)
         import_media(self.rootpath, self.dialog.finish_import)
 
     def on_input_change(self) -> None:

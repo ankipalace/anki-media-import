@@ -1,5 +1,13 @@
 from concurrent.futures import Future
-from typing import Callable, Dict, List, NamedTuple, Sequence, NamedTuple, Optional
+from typing import (
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Sequence,
+    NamedTuple,
+    Tuple,
+)
 from requests.exceptions import RequestException
 from datetime import datetime, timedelta
 import unicodedata
@@ -111,10 +119,15 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
     """
     Import media from a directory, and its subdirectories.
     """
-    logs: List[str] = []
 
+    def finish_import(result: ImportResult):
+        mw.progress.finish()
+        on_done(result)
+
+    logs: List[str] = []
+    mw.progress.start(parent=mw, label="Importing media", immediate=True)
     try:
-        _import_media(logs, src, on_done)
+        _import_media(logs, src, finish_import)
     except Exception as err:
         tb = traceback.format_exc()
         print(tb)
@@ -122,7 +135,7 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
         logs.append(tb)
         logs.append(str(err))
         res = ImportResult(logs, success=False)
-        on_done(res)
+        finish_import(res)
 
 
 def _import_media(
@@ -136,8 +149,6 @@ def _import_media(
         log(msg)
         result = ImportResult(logs, success)
         on_done(result)
-
-    mw.progress.start(parent=mw, label="Importing media", immediate=True)
 
     # 1. Get the name of all media files.
     files_list = src.files
@@ -171,13 +182,15 @@ def _import_media(
             file_names_str += file.name + "\n"
         log(file_names_str + "-" * 16)
         ask_msg = msg + "\nDo you want to import the rest of the files?"
-        diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
         mw.progress.finish()
+        diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
         if diag.run() == "Abort Import":
+            mw.progress.start()  # finish_import calls mw.progress.finish()
             finish_import(
                 "Aborted import due to name conflict with existing media", success=False
             )
             return
+        mw.progress.start(parent=mw, label="Importing media", immediate=True)
     if info.update_count():
         diff = info.diff - len(name_conflicts)
         log(f"{diff} files were skipped because they already exist in collection.")
@@ -197,22 +210,21 @@ def _import_media(
 
     def import_files_list(
         files_list: List[FileLike] = files_list, info: ImportInfo = info
-    ) -> None:
+    ) -> Tuple[bool, str]:
+        """returns (is_success, result msg)"""
         nonlocal error_cnt
 
         while True:
             # Last file was added
             if len(files_list) == 0:
-                finish_import(f"{info.tot} media files were imported.", success=True)
-                return
+                return (True, f"{info.tot} media files were imported.")
 
             # Abort import
             if mw.progress.want_cancel():
-                finish_import(
+                return (
+                    False,
                     f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
-                    success=False,
                 )
-                return
 
             progress_msg = (
                 f"Adding media files ({info.left} / {info.tot})\n"
@@ -238,17 +250,17 @@ def _import_media(
                     if info.left < 10:
                         for file in files_list:
                             log(file.name)
-                    finish_import(
+                    return (
+                        False,
                         f"{info.left} / {info.tot} media files were imported.",
-                        success=False,
                     )
-                    return
                 else:
                     files_list.append(file)
 
     def on_import_done(future: Future) -> None:
         try:
-            future.result()
+            (success, msg) = future.result()
+            finish_import(msg, success)
         except Exception as err:
             raise err
 

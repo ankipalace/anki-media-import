@@ -75,7 +75,6 @@ class ImportDialog(QDialog):
         button_row.addWidget(import_btn)
 
     def finish_import(self, result: ImportResult) -> None:
-        mw.progress.finish()
         if result.success:
             ImportResultDialog(mw, result).exec()
             self.close()
