@@ -1,11 +1,12 @@
-from typing import List
-import requests
-import re
+import gzip
 import os
+import re
+from typing import List
+
+import requests
 
 from .base import FileLike, RootPath
 from .errors import *
-
 
 try:
     from ..google_api_key import get_google_api_key  # type: ignore
@@ -28,6 +29,7 @@ class GDrive:
     FIELDS_STR = ",".join(
         ["id", "name", "md5Checksum", "mimeType", "fileExtension", "size"]
     )
+    GZIP_HEADERS = {"Accept-Encoding": "gzip", "User-Agent": "ankihub (gzip)"}
 
     def get_metadata(self, id: str) -> dict:
         url = f"{self.BASE_URL}/{id}"
@@ -60,11 +62,16 @@ class GDrive:
 
     def download_file(self, id: str) -> bytes:
         url = f"{self.BASE_URL}/{id}"
-        res = self.make_request(url, params={"alt": "media", "key": API_KEY})
-        return res.content
+        res = self.make_request(
+            url, params={"alt": "media", "key": API_KEY}, headers=self.GZIP_HEADERS
+        )
+        decompressed_data = gzip.decompress(res.content)
+        return decompressed_data
 
-    def make_request(self, url: str, params: dict) -> requests.Response:
-        res = requests.get(url, params)
+    def make_request(
+        self, url: str, params: dict, headers: Optional[dict] = None
+    ) -> requests.Response:
+        res = requests.get(url, params, headers=headers)
         if res.ok:
             return res
 
