@@ -120,7 +120,7 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
     Import media from a directory, and its subdirectories.
     """
 
-    def finish_import(result: ImportResult):
+    def finish_import(result: ImportResult) -> None:
         mw.progress.finish()
         on_done(result)
 
