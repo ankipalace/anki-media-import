@@ -1,7 +1,20 @@
-from typing import List
+from concurrent.futures import Future
+from pathlib import Path
+from typing import List, Callable, Any
 import requests
 import re
 import os
+
+from aqt import mw
+from aqt.webview import AnkiWebView, AnkiWebPage
+from aqt.qt import (
+    QWebEngineProfile,
+    QWebEnginePage,
+    QWaitCondition,
+    QUrl,
+    QDialog,
+    QVBoxLayout,
+)
 
 from .base import FileLike, RootPath
 from .errors import *
@@ -16,6 +29,17 @@ except:  # Not production?
         API_KEY = os.environ["GOOGLE_API_KEY"]
     except:
         API_KEY = None
+
+
+class PrivateWebPage(AnkiWebPage):
+    def __init__(self, profile: QWebEngineProfile, onBridgeCmd: Callable[[str], Any]):
+        QWebEnginePage.__init__(self, profile, None)
+        self._onBridgeCmd = onBridgeCmd
+        self._setupBridge()
+        self.open_links_externally = False
+
+
+dialog = None
 
 
 class GDrive:
@@ -62,6 +86,94 @@ class GDrive:
         url = f"{self.BASE_URL}/{id}"
         res = self.make_request(url, params={"alt": "media", "key": API_KEY})
         return res.content
+
+    def download_folder_zip(self, id: str, on_done: Callable[[Future], None]) -> bytes:
+        global dialog
+        dialog = QDialog(mw)
+        layout = QVBoxLayout()
+        dialog.setLayout(layout)
+
+        web = AnkiWebView(mw)
+        dialog.web = web
+
+        layout.addWidget(web)
+        layout.setContentsMargins(0, 0, 0, 0)
+        dialog.setMinimumWidth(680)
+        dialog.setMinimumHeight(500)
+        dialog.show()
+
+        wait = QWaitCondition()
+        profile = QWebEngineProfile()
+        dialog.profile = profile
+        profile.setHttpAcceptLanguage("en")
+        profile.setDownloadPath(str(Path().parent.resolve()))
+        # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
+        request = None
+        isError = False
+
+        def onDownload(req: Any):
+            nonlocal request
+            print("downloadStarted")
+            request = req
+            req.accept()
+
+        def onCmd(cmd: str):
+            nonlocal isError
+            if cmd == "gdriveError":
+                isError = True
+            print(cmd)
+
+        profile.downloadRequested.connect(onDownload)
+        backgroundColor = web.page().backgroundColor()
+        page = PrivateWebPage(profile, web._onBridgeCmd)
+        page.setBackgroundColor(backgroundColor)
+        web.setPage(page)
+        web._page = page
+        web.set_bridge_command(onCmd, self)
+        web.load_url(QUrl(f"https://drive.google.com/drive/folders/{id}?hl=en"))
+        web.eval(
+            """
+        (() => {
+            const onload = () => {
+                try {
+                    pycmd("start")
+                    const elem = document.evaluate("//div[text()='Download all']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE).singleNodeValue;
+                    elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
+                    pycmd("dispatched")
+                } catch (e) {
+                    pycmd("gdriveError")
+                }
+            }
+            if (document.readyState === "complete") {
+                onload()
+            } else {
+                window.addEventListener("load", () => setTimeout(() => {onload()}, 5000))
+            }
+            pycmd("Evaluated")
+        })()
+            """
+        )
+        print("Load finished")
+
+        def _download_folder_zip(id: str):
+            while True:
+                if request is None:
+                    continue
+                if request.isFinished():
+                    return
+                return
+                mw.taskman.run_on_main(
+                    lambda: mw.progress.update(
+                        label="Downloading folder",
+                        value=request.receivedBytes(),
+                        max=request.totalBytes(),
+                    )
+                )
+
+        mw.progress.finish()
+        mw.taskman.run_in_background(
+            task=lambda: _download_folder_zip(id), on_done=on_done
+        )
 
     def make_request(self, url: str, params: dict) -> requests.Response:
         res = requests.get(url, params)

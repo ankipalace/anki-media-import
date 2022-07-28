@@ -16,7 +16,7 @@ import traceback
 from anki.media import media_paths_from_col_path
 from aqt import mw
 from aqt.utils import askUserDialog
-
+from .pathlike.gdrive import GDriveRoot, gdrive
 from .pathlike import FileLike, RootPath, LocalRoot
 from .pathlike.errors import AddonError
 
@@ -265,7 +265,10 @@ def _import_media(
         except Exception as err:
             raise err
 
-    mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
+    if isinstance(src, GDriveRoot):
+        gdrive.download_folder_zip(src.id, on_import_done)
+    else:
+        mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
