@@ -1,5 +1,6 @@
 from concurrent.futures import Future
 from pathlib import Path
+import time
 from typing import List, Callable, Any
 import requests
 import re
@@ -29,6 +30,9 @@ except:  # Not production?
         API_KEY = os.environ["GOOGLE_API_KEY"]
     except:
         API_KEY = None
+
+
+ZIP_DOWNLOAD_PATH = Path(__file__).resolve().parent.parent / "temp"
 
 
 class PrivateWebPage(AnkiWebPage):
@@ -106,7 +110,7 @@ class GDrive:
         profile = QWebEngineProfile()
         dialog.profile = profile
         profile.setHttpAcceptLanguage("en")
-        profile.setDownloadPath(str(Path().parent.resolve()))
+        profile.setDownloadPath(str(ZIP_DOWNLOAD_PATH))
         # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
         request = None
         isError = False
@@ -157,11 +161,14 @@ class GDrive:
 
         def _download_folder_zip(id: str):
             while True:
+                time.sleep(0.5)
                 if request is None:
                     continue
                 if request.isFinished():
-                    return
-                return
+                    return (True, "Finished")
+                if mw.progress.want_cancel():
+                    request.cancel()
+                    return (False, "Cancelled")
                 mw.taskman.run_on_main(
                     lambda: mw.progress.update(
                         label="Downloading folder",

@@ -3,6 +3,7 @@ meta.json
 google_api_key.py
 
 src/media_import/libs/
+src/media_import/temp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
