@@ -1,18 +1,23 @@
 from concurrent.futures import Future
 from pathlib import Path
 import time
-from typing import List, Callable, Any
+from typing import List, Callable, Any, TYPE_CHECKING
 import requests
 import re
 import os
+from zipfile import ZipFile
+from tempfile import TemporaryDirectory
 
 from aqt import mw
 from aqt.webview import AnkiWebView, AnkiWebPage
 from aqt.qt import QWebEngineProfile, QWebEnginePage, QUrl
 
 from .base import FileLike, RootPath
+from .local import LocalRoot
 from .errors import *
 
+if TYPE_CHECKING:
+    from ..importing import ImportResult
 
 try:
     from ..google_api_key import get_google_api_key  # type: ignore
@@ -23,9 +28,6 @@ except:  # Not production?
         API_KEY = os.environ["GOOGLE_API_KEY"]
     except:
         API_KEY = None
-
-
-ZIP_DOWNLOAD_PATH = Path(__file__).resolve().parent.parent / "temp"
 
 
 class PrivateWebPage(AnkiWebPage):
@@ -133,27 +135,35 @@ class GDrive:
 
 
 class FolderAsZipImporter:
+    ZIP_NAME = "media.zip"
+
     id: str
-    on_done: Callable[[Future], None]
+    on_done: Callable[[str, bool], None]
     web: AnkiWebView
+    zip_dir: TemporaryDirectory
+    unzip_dir: TemporaryDirectory
     # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
     request: Any = None
     error_msg: Optional[str] = None
 
-    def __init__(self, id: str, on_done: Callable[[Future], None]) -> None:
+    def __init__(self, id: str, on_done: Callable[[str, bool], None]) -> None:
         self.id = id
         self.on_done = on_done
-        self.setup_web()
-        mw.taskman.run_in_background(
-            task=lambda: self.poll_download_progress(), on_done=self.on_finish
-        )
+        with TemporaryDirectory() as zip_dir, TemporaryDirectory() as unzip_dir:
+            self.zip_dir = zip_dir
+            self.unzip_dir = unzip_dir
+            self.setup_web()
+            mw.taskman.run_in_background(
+                task=lambda: self.poll_download_progress(),
+                on_done=self.on_finish_download_zip,
+            )
 
     def setup_web(self) -> None:
         web = AnkiWebView(mw)
         self.web = web
         profile = QWebEngineProfile(web)
         profile.setHttpAcceptLanguage("en")
-        profile.setDownloadPath(str(ZIP_DOWNLOAD_PATH))
+        profile.setDownloadPath(self.zip_dir)
         profile.downloadRequested.connect(self.on_download)
         backgroundColor = web.page().backgroundColor()
         page = PrivateWebPage(profile, web._onBridgeCmd)
@@ -188,6 +198,7 @@ class FolderAsZipImporter:
 
     def on_download(self, req: Any):
         self.request = req
+        req.setDownloadFileName(self.ZIP_NAME)
         req.accept()
 
     def on_cmd(self, cmd: str):
@@ -195,7 +206,7 @@ class FolderAsZipImporter:
         if cmd.startswith("gdriveError!"):
             self.error_msg = cmd[len("gdriveError!") :]
 
-    def poll_download_progress(self):
+    def poll_download_progress(self) -> None:
         while True:
             time.sleep(0.5)
             if self.request is None:
@@ -219,11 +230,32 @@ class FolderAsZipImporter:
                 )
             )
 
-    def on_finish(self, future: Future):
+    def on_finish_download_zip(self, future: Future) -> None:
         self.web.setParent(None)
         self.web.deleteLater()
         self.web = None
-        self.on_done(future)
+
+        try:
+            (success, msg) = future.result()
+            if success:
+                self.unzip_and_install()
+            else:
+                self.on_done(msg, success)
+        except Exception as err:
+            self.on_done(str(err), False)
+
+    def unzip_and_install(self) -> None:
+        from ..importing import import_media
+
+        zip_path = os.path.join(self.zip_dir, self.ZIP_NAME)
+        with ZipFile(zip_path) as zfile:
+            zfile.extractall(self.unzip_dir)
+            inner_dir = [d for d in os.scandir(self.unzip_dir) if d.is_dir()][0]
+            root = LocalRoot(inner_dir.path)
+            import_media(root, self.on_finish)
+
+    def on_finish(self, result: "ImportResult") -> None:
+        self.on_done("\n".join(result.logs), result.success)
 
 
 gdrive = GDrive()

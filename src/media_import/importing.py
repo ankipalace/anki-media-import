@@ -266,7 +266,7 @@ def _import_media(
             raise err
 
     if isinstance(src, GDriveRoot):
-        gdrive.download_folder_zip(src.id, on_import_done)
+        gdrive.download_folder_zip(src.id, finish_import)
     else:
         mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
 
