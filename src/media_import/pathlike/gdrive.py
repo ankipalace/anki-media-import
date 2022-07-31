@@ -8,14 +8,7 @@ import os
 
 from aqt import mw
 from aqt.webview import AnkiWebView, AnkiWebPage
-from aqt.qt import (
-    QWebEngineProfile,
-    QWebEnginePage,
-    QWaitCondition,
-    QUrl,
-    QDialog,
-    QVBoxLayout,
-)
+from aqt.qt import QWebEngineProfile, QWebEnginePage, QUrl
 
 from .base import FileLike, RootPath
 from .errors import *
@@ -142,7 +135,7 @@ class GDrive:
 class FolderAsZipImporter:
     id: str
     on_done: Callable[[Future], None]
-    dialog: QDialog
+    web: AnkiWebView
     # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
     request: Any = None
     error_msg: Optional[str] = None
@@ -151,27 +144,14 @@ class FolderAsZipImporter:
         self.id = id
         self.on_done = on_done
         self.setup_web()
-        mw.progress.finish()
         mw.taskman.run_in_background(
             task=lambda: self.poll_download_progress(), on_done=self.on_finish
         )
 
     def setup_web(self) -> None:
-        dialog = QDialog(mw)
-        self.dialog = dialog
-        layout = QVBoxLayout()
-        dialog.setLayout(layout)
-
         web = AnkiWebView(mw)
-        dialog.web = web
-
-        layout.addWidget(web)
-        layout.setContentsMargins(0, 0, 0, 0)
-        dialog.setMinimumWidth(680)
-        dialog.setMinimumHeight(500)
-        dialog.show()
-        profile = QWebEngineProfile()
-        dialog.profile = profile
+        self.web = web
+        profile = QWebEngineProfile(web)
         profile.setHttpAcceptLanguage("en")
         profile.setDownloadPath(str(ZIP_DOWNLOAD_PATH))
         profile.downloadRequested.connect(self.on_download)
@@ -240,8 +220,9 @@ class FolderAsZipImporter:
             )
 
     def on_finish(self, future: Future):
-        self.dialog.setParent(None)
-        self.dialog = None
+        self.web.setParent(None)
+        self.web.deleteLater()
+        self.web = None
         self.on_done(future)
 
 
