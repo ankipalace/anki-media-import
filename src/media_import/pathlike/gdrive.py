@@ -113,7 +113,7 @@ class GDrive:
         profile.setDownloadPath(str(ZIP_DOWNLOAD_PATH))
         # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
         request = None
-        isError = False
+        errorMsg: Optional[str] = None
 
         def onDownload(req: Any):
             nonlocal request
@@ -122,10 +122,10 @@ class GDrive:
             req.accept()
 
         def onCmd(cmd: str):
-            nonlocal isError
-            if cmd == "gdriveError":
-                isError = True
+            nonlocal errorMsg
             print(cmd)
+            if cmd.startswith("gdriveError!"):
+                errorMsg = cmd[len("gdriveError!") :]
 
         profile.downloadRequested.connect(onDownload)
         backgroundColor = web.page().backgroundColor()
@@ -140,24 +140,26 @@ class GDrive:
         (() => {
             const onload = () => {
                 try {
-                    pycmd("start")
                     const elem = document.evaluate("//div[text()='Download all']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE).singleNodeValue;
+                    if (elem) {
+                        elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
                     elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
-                    pycmd("dispatched")
+                        elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
+                    } else {
+                        setTimeout(onload, 1000);
+                    }
                 } catch (e) {
-                    pycmd("gdriveError")
+                    pycmd("gdriveError!" + e.toString())
                 }
             }
             if (document.readyState === "complete") {
                 onload()
             } else {
-                window.addEventListener("load", () => setTimeout(() => {onload()}, 5000))
+                window.addEventListener("load", setTimeout(onload, 3000))
             }
-            pycmd("Evaluated")
         })()
             """
         )
-        print("Load finished")
 
         def _download_folder_zip(id: str):
             while True:
