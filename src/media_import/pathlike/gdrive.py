@@ -43,7 +43,7 @@ class PrivateWebPage(AnkiWebPage):
         self.open_links_externally = False
 
 
-dialog = None
+dialog: Optional[QDialog] = None
 
 
 class GDrive:
@@ -105,8 +105,6 @@ class GDrive:
         dialog.setMinimumWidth(680)
         dialog.setMinimumHeight(500)
         dialog.show()
-
-        wait = QWaitCondition()
         profile = QWebEngineProfile()
         dialog.profile = profile
         profile.setHttpAcceptLanguage("en")
@@ -117,7 +115,6 @@ class GDrive:
 
         def onDownload(req: Any):
             nonlocal request
-            print("downloadStarted")
             request = req
             req.accept()
 
@@ -143,8 +140,6 @@ class GDrive:
                     const elem = document.evaluate("//div[text()='Download all']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE).singleNodeValue;
                     if (elem) {
                         elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
-                    elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
-                        elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
                     } else {
                         setTimeout(onload, 1000);
                     }
@@ -161,10 +156,15 @@ class GDrive:
             """
         )
 
-        def _download_folder_zip(id: str):
+        def _download_folder_zip():
             while True:
                 time.sleep(0.5)
                 if request is None:
+                    if errorMsg is not None:
+                        return (
+                            False,
+                            f"JS error while downloading folder:\n{errorMsg}",
+                        )
                     continue
                 if request.isFinished():
                     return (True, "Finished")
@@ -179,9 +179,15 @@ class GDrive:
                     )
                 )
 
+        def on_finish(future: Future):
+            global dialog
+            dialog.setParent(None)
+            dialog = None
+            on_done(future)
+
         mw.progress.finish()
         mw.taskman.run_in_background(
-            task=lambda: _download_folder_zip(id), on_done=on_done
+            task=lambda: _download_folder_zip(), on_done=on_finish
         )
 
     def make_request(self, url: str, params: dict) -> requests.Response:
