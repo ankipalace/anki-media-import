@@ -43,7 +43,7 @@ class PrivateWebPage(AnkiWebPage):
         self.open_links_externally = False
 
 
-dialog: Optional[QDialog] = None
+importer: Optional["FolderAsZipImporter"]
 
 
 class GDrive:
@@ -92,103 +92,8 @@ class GDrive:
         return res.content
 
     def download_folder_zip(self, id: str, on_done: Callable[[Future], None]) -> bytes:
-        global dialog
-        dialog = QDialog(mw)
-        layout = QVBoxLayout()
-        dialog.setLayout(layout)
-
-        web = AnkiWebView(mw)
-        dialog.web = web
-
-        layout.addWidget(web)
-        layout.setContentsMargins(0, 0, 0, 0)
-        dialog.setMinimumWidth(680)
-        dialog.setMinimumHeight(500)
-        dialog.show()
-        profile = QWebEngineProfile()
-        dialog.profile = profile
-        profile.setHttpAcceptLanguage("en")
-        profile.setDownloadPath(str(ZIP_DOWNLOAD_PATH))
-        # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
-        request = None
-        errorMsg: Optional[str] = None
-
-        def onDownload(req: Any):
-            nonlocal request
-            request = req
-            req.accept()
-
-        def onCmd(cmd: str):
-            nonlocal errorMsg
-            print(cmd)
-            if cmd.startswith("gdriveError!"):
-                errorMsg = cmd[len("gdriveError!") :]
-
-        profile.downloadRequested.connect(onDownload)
-        backgroundColor = web.page().backgroundColor()
-        page = PrivateWebPage(profile, web._onBridgeCmd)
-        page.setBackgroundColor(backgroundColor)
-        web.setPage(page)
-        web._page = page
-        web.set_bridge_command(onCmd, self)
-        web.load_url(QUrl(f"https://drive.google.com/drive/folders/{id}?hl=en"))
-        web.eval(
-            """
-        (() => {
-            const onload = () => {
-                try {
-                    const elem = document.evaluate("//div[text()='Download all']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE).singleNodeValue;
-                    if (elem) {
-                        elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
-                    } else {
-                        setTimeout(onload, 1000);
-                    }
-                } catch (e) {
-                    pycmd("gdriveError!" + e.toString())
-                }
-            }
-            if (document.readyState === "complete") {
-                onload()
-            } else {
-                window.addEventListener("load", setTimeout(onload, 3000))
-            }
-        })()
-            """
-        )
-
-        def _download_folder_zip():
-            while True:
-                time.sleep(0.5)
-                if request is None:
-                    if errorMsg is not None:
-                        return (
-                            False,
-                            f"JS error while downloading folder:\n{errorMsg}",
-                        )
-                    continue
-                if request.isFinished():
-                    return (True, "Finished")
-                if mw.progress.want_cancel():
-                    request.cancel()
-                    return (False, "Cancelled")
-                mw.taskman.run_on_main(
-                    lambda: mw.progress.update(
-                        label="Downloading folder",
-                        value=request.receivedBytes(),
-                        max=request.totalBytes(),
-                    )
-                )
-
-        def on_finish(future: Future):
-            global dialog
-            dialog.setParent(None)
-            dialog = None
-            on_done(future)
-
-        mw.progress.finish()
-        mw.taskman.run_in_background(
-            task=lambda: _download_folder_zip(), on_done=on_finish
-        )
+        global importer
+        importer = FolderAsZipImporter(id, on_done)
 
     def make_request(self, url: str, params: dict) -> requests.Response:
         res = requests.get(url, params)
@@ -232,6 +137,112 @@ class GDrive:
         if m:
             raise IsAFileError()
         raise MalformedURLError()
+
+
+class FolderAsZipImporter:
+    id: str
+    on_done: Callable[[Future], None]
+    dialog: QDialog
+    # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
+    request: Any = None
+    error_msg: Optional[str] = None
+
+    def __init__(self, id: str, on_done: Callable[[Future], None]) -> None:
+        self.id = id
+        self.on_done = on_done
+        self.setup_web()
+        mw.progress.finish()
+        mw.taskman.run_in_background(
+            task=lambda: self.poll_download_progress(), on_done=self.on_finish
+        )
+
+    def setup_web(self) -> None:
+        dialog = QDialog(mw)
+        self.dialog = dialog
+        layout = QVBoxLayout()
+        dialog.setLayout(layout)
+
+        web = AnkiWebView(mw)
+        dialog.web = web
+
+        layout.addWidget(web)
+        layout.setContentsMargins(0, 0, 0, 0)
+        dialog.setMinimumWidth(680)
+        dialog.setMinimumHeight(500)
+        dialog.show()
+        profile = QWebEngineProfile()
+        dialog.profile = profile
+        profile.setHttpAcceptLanguage("en")
+        profile.setDownloadPath(str(ZIP_DOWNLOAD_PATH))
+        profile.downloadRequested.connect(self.on_download)
+        backgroundColor = web.page().backgroundColor()
+        page = PrivateWebPage(profile, web._onBridgeCmd)
+        page.setBackgroundColor(backgroundColor)
+        web.setPage(page)
+        web._page = page
+        web.set_bridge_command(self.on_cmd, self)
+        web.load_url(QUrl(f"https://drive.google.com/drive/folders/{self.id}?hl=en"))
+        web.eval(
+            """
+        (() => {
+            const onload = () => {
+                try {
+                    const elem = document.evaluate("//div[text()='Download all']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE).singleNodeValue;
+                    if (elem) {
+                        elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
+                    } else {
+                        setTimeout(onload, 1000);
+                    }
+                } catch (e) {
+                    pycmd("gdriveError!" + e.toString())
+                }
+            }
+            if (document.readyState === "complete") {
+                onload()
+            } else {
+                window.addEventListener("load", setTimeout(onload, 3000))
+            }
+        })()
+            """
+        )
+
+    def on_download(self, req: Any):
+        self.request = req
+        req.accept()
+
+    def on_cmd(self, cmd: str):
+        print(cmd)
+        if cmd.startswith("gdriveError!"):
+            self.error_msg = cmd[len("gdriveError!") :]
+
+    def poll_download_progress(self):
+        while True:
+            time.sleep(0.5)
+            if self.request is None:
+                if self.error_msg is not None:
+                    return (
+                        False,
+                        f"JS error while downloading folder:\n{self.error_msg}",
+                    )
+                continue
+            request = self.request
+            if request.isFinished():
+                return (True, "Finished")
+            if mw.progress.want_cancel():
+                request.cancel()
+                return (False, "Cancelled")
+            mw.taskman.run_on_main(
+                lambda: mw.progress.update(
+                    label="Downloading folder",
+                    value=request.receivedBytes(),
+                    max=request.totalBytes(),
+                )
+            )
+
+    def on_finish(self, future: Future):
+        self.dialog.setParent(None)
+        self.dialog = None
+        self.on_done(future)
 
 
 gdrive = GDrive()
