@@ -1,24 +1,20 @@
-from concurrent.futures import Future
-from typing import (
-    Callable,
-    Dict,
-    List,
-    NamedTuple,
-    Sequence,
-    NamedTuple,
-    Tuple,
-)
-from requests.exceptions import RequestException
-from datetime import datetime, timedelta
-import unicodedata
 import traceback
+import unicodedata
+from concurrent.futures import Future
+from datetime import datetime, timedelta
+from typing import Callable, Dict, List, NamedTuple, Sequence, Tuple
 
 from anki.media import media_paths_from_col_path
 from aqt import mw
 from aqt.utils import askUserDialog
+from requests.exceptions import RequestException
 
-from .pathlike import FileLike, RootPath, LocalRoot
+from .pathlike import FileLike, LocalRoot, RootPath
 from .pathlike.errors import AddonError
+from .pathlike.gdrive import GDriveRoot, gdrive
+
+# if there are at least so many files in a gdrive directory, it will be downloaded as a zip file
+GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD = 5
 
 
 class ImportResult(NamedTuple):
@@ -265,7 +261,13 @@ def _import_media(
         except Exception as err:
             raise err
 
-    mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
+    if (
+        isinstance(src, GDriveRoot)
+        and len(files_list) > GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD
+    ):
+        gdrive.download_folder_zip(src.id, finish_import)
+    else:
+        mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:

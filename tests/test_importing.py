@@ -30,6 +30,25 @@ def test_gdrive_import(anki_session: AnkiSession) -> None:
         _test_import(root, mw)
 
 
+def test_gdrive_as_folder_import(anki_session: AnkiSession, monkeypatch) -> None:
+    # does not work yet, the js here:
+    # https://github.com/ankipalace/anki-media-import/blob/7bf9cfb1d99da9eed3654ee8586e4a3cad0fa899/src/media_import/pathlike/gdrive.py#L176
+    # is never executed
+
+    with anki_session.profile_loaded():
+        from src.media_import.pathlike.gdrive import GDriveRoot
+
+        monkeypatch.setattr(
+            "src.media_import.importing.GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD", 0
+        )
+
+        root = GDriveRoot(
+            "https://drive.google.com/drive/folders/1goqb4kHJHhxw4NASSd4vXMp6h04bansc"
+        )
+        mw = anki_session.mw
+        _test_import(root, mw)
+
+
 def test_mega_import(anki_session: AnkiSession) -> None:
 
     with anki_session.profile_loaded():
