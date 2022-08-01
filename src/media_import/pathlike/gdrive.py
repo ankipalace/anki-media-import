@@ -200,7 +200,7 @@ class FolderAsZipImporter:
             if (document.readyState === "complete") {
                 setTimeout(onload, 5000);
             } else {
-                window.addEventListener("load", setTimeout(onload, 5000));
+                window.addEventListener("load", () => {setTimeout(onload, 5000)});
             }
         })()
             """
