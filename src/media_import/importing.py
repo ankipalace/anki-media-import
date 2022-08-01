@@ -265,7 +265,7 @@ def _import_media(
         except Exception as err:
             raise err
 
-    if isinstance(src, GDriveRoot):
+    if isinstance(src, GDriveRoot) and len(files_list) > 5:
         gdrive.download_folder_zip(src.id, finish_import)
     else:
         mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
