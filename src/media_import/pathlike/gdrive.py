@@ -1,7 +1,6 @@
 from concurrent.futures import Future
-from pathlib import Path
 import time
-from typing import List, Callable, Any, TYPE_CHECKING
+from typing import List, Callable, Any, TYPE_CHECKING, Tuple
 import requests
 import re
 import os
@@ -86,7 +85,9 @@ class GDrive:
         res = self.make_request(url, params={"alt": "media", "key": API_KEY})
         return res.content
 
-    def download_folder_zip(self, id: str, on_done: Callable[[Future], None]) -> bytes:
+    def download_folder_zip(
+        self, id: str, on_done: Callable[[str, bool], None]
+    ) -> None:
         global importer
         importer = FolderAsZipImporter(id, on_done)
 
@@ -138,17 +139,17 @@ class FolderAsZipImporter:
     ZIP_NAME = "media.zip"
 
     id: str
-    on_done: Callable[[str, bool], None]
+    # on_done: Callable[[str, bool], None]
     web: AnkiWebView
-    zip_dir: TemporaryDirectory
-    unzip_dir: TemporaryDirectory
+    zip_dir: str
+    unzip_dir: str
     # qt6: QWebEngineDownloadRequest, qt5: QWebEngineDownloadItem
     request: Any = None
     error_msg: Optional[str] = None
 
     def __init__(self, id: str, on_done: Callable[[str, bool], None]) -> None:
         self.id = id
-        self.on_done = on_done
+        self.on_done = on_done  # type: ignore
         with TemporaryDirectory() as zip_dir, TemporaryDirectory() as unzip_dir:
             self.zip_dir = zip_dir
             self.unzip_dir = unzip_dir
@@ -164,7 +165,7 @@ class FolderAsZipImporter:
         profile = QWebEngineProfile(web)
         profile.setHttpAcceptLanguage("en")
         profile.setDownloadPath(self.zip_dir)
-        profile.downloadRequested.connect(self.on_download)
+        profile.downloadRequested.connect(self.on_download)  # type: ignore
         backgroundColor = web.page().backgroundColor()
         page = PrivateWebPage(profile, web._onBridgeCmd)
         page.setBackgroundColor(backgroundColor)
@@ -206,16 +207,16 @@ class FolderAsZipImporter:
             """
         )
 
-    def on_download(self, req: Any):
+    def on_download(self, req: Any) -> None:
         self.request = req
         req.setDownloadFileName(self.ZIP_NAME)
         req.accept()
 
-    def on_cmd(self, cmd: str):
+    def on_cmd(self, cmd: str) -> None:
         if cmd.startswith("gdriveError!"):
             self.error_msg = cmd[len("gdriveError!") :]
 
-    def poll_download_progress(self) -> None:
+    def poll_download_progress(self) -> Tuple[bool, str]:
         while True:
             time.sleep(0.5)
             if mw.progress.want_cancel():
