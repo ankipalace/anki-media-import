@@ -212,7 +212,6 @@ class FolderAsZipImporter:
         req.accept()
 
     def on_cmd(self, cmd: str):
-        print(cmd)
         if cmd.startswith("gdriveError!"):
             self.error_msg = cmd[len("gdriveError!") :]
 
