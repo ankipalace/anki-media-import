@@ -1,7 +1,6 @@
 from aqt import mw
+from aqt.qt import QAction, QMenu
 from aqt.utils import openLink
-from aqt.qt import QMenu, QAction
-
 
 # fmt: off
 addon_name = __name__.split('.')[0]
