@@ -253,7 +253,7 @@ class FolderAsZipImporter:
 
     def on_finish_download_zip(self, future: Future) -> None:
         self.web.setParent(None)
-        self.web.page().profile().deleteLater()
+        self.web.page().deleteLater()
         self.web.deleteLater()
         self.web = None
 
