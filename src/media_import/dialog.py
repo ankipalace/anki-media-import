@@ -31,7 +31,7 @@ class ImportResultDialog(QMessageBox):
 
 class ImportDialog(QDialog):
     def __init__(self) -> None:
-        QDialog.__init__(self, mw, Qt.WindowType.Window)
+        QDialog.__init__(self, mw, Qt.WindowType.Tool)
         self.setWindowTitle("Import Media")
         self.setMinimumWidth(500)
         self.setup()
