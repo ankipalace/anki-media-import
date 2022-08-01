@@ -174,6 +174,15 @@ class FolderAsZipImporter:
         web.load_url(QUrl(f"https://drive.google.com/drive/folders/{self.id}?hl=en"))
         web.eval(
             """
+        window.AnkiHub = {};
+        window.AnkiHub.GetZipProgress = () => {
+            const elem = document.querySelector("[data-progress]");
+            if (elem) {
+                return parseFloat(elem.dataset.progress);
+            } else {
+                return 0;
+            }
+        }
         (() => {
             const onload = () => {
                 try {
@@ -209,19 +218,31 @@ class FolderAsZipImporter:
     def poll_download_progress(self) -> None:
         while True:
             time.sleep(0.5)
+            if mw.progress.want_cancel():
+                if self.request:
+                    self.request.cancel()
+                return (False, "Cancelled")
             if self.request is None:
                 if self.error_msg is not None:
                     return (
                         False,
                         f"JS error while downloading folder:\n{self.error_msg}",
                     )
+                self.web.evalWithCallback(
+                    "AnkiHub.GetZipProgress()",
+                    lambda progress: mw.taskman.run_on_main(
+                        lambda: mw.progress.update(
+                            label=f"Zipping folder ({progress}%)",
+                            value=progress + 1,  # value must not be 0
+                            max=101,
+                        ),
+                    ),
+                )
                 continue
+
             request = self.request
             if request.isFinished():
                 return (True, "Finished")
-            if mw.progress.want_cancel():
-                request.cancel()
-                return (False, "Cancelled")
             mw.taskman.run_on_main(
                 lambda: mw.progress.update(
                     label="Downloading folder",
@@ -232,6 +253,7 @@ class FolderAsZipImporter:
 
     def on_finish_download_zip(self, future: Future) -> None:
         self.web.setParent(None)
+        self.web.page().profile().deleteLater()
         self.web.deleteLater()
         self.web = None
 
