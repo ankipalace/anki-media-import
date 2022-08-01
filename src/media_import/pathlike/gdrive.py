@@ -190,16 +190,17 @@ class FolderAsZipImporter:
                     if (elem) {
                         elem.dispatchEvent(new MouseEvent("mousedown"));elem.dispatchEvent(new MouseEvent("mouseup"));elem.dispatchEvent(new MouseEvent("click")); 
                     } else {
-                        setTimeout(onload, 1000);
+                        setTimeout(onload, 2000);
                     }
                 } catch (e) {
-                    pycmd("gdriveError!" + e.toString())
+                    pycmd("gdriveError!" + e.toString());
                 }
             }
+            // There seems to be some delay between document load and event listener attaching
             if (document.readyState === "complete") {
-                onload()
+                setTimeout(onload, 5000);
             } else {
-                window.addEventListener("load", setTimeout(onload, 3000))
+                window.addEventListener("load", setTimeout(onload, 5000));
             }
         })()
             """
