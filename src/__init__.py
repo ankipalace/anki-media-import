@@ -1,7 +1,7 @@
-from aqt import gui_hooks, mw
 from typing import Callable
-from aqt.qt import QMenu, QAction
 
+from aqt import gui_hooks, mw
+from aqt.qt import QAction
 
 from .anking import get_anking_menu
 from .media_import import open_import_dialog
