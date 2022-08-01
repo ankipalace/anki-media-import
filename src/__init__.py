@@ -1,7 +1,17 @@
-from aqt import gui_hooks
+from aqt import gui_hooks, mw
+from typing import Callable
+from aqt.qt import QMenu, QAction
 
-from .anking import setupMenu
+
+from .anking import get_anking_menu
 from .media_import import open_import_dialog
+
+
+def setupMenu(handler: Callable[[], None]) -> None:
+    menu = get_anking_menu()
+    a = QAction("Import Media", mw)
+    a.triggered.connect(handler)  # type: ignore
+    menu.addAction(a)
 
 
 gui_hooks.main_window_did_init.append(lambda: setupMenu(open_import_dialog))
