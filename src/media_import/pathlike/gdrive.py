@@ -276,8 +276,9 @@ class FolderAsZipImporter:
             root = LocalRoot(inner_dir.path)
             import_media(root, self.on_finish)
 
+    # TODO: refactor logs mechanism and progress dialog
     def on_finish(self, result: "ImportResult") -> None:
-        self.on_done("\n".join(result.logs), result.success)
+        self.on_done("Successfully imported media files", result.success)
 
 
 gdrive = GDrive()
