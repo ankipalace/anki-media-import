@@ -330,4 +330,4 @@ def add_media(file: FileLike) -> None:
     """
     data = file.read_bytes()
     new_name = mw.col.media.write_data(file.name, data)
-    assert new_name == file.name  # TODO: write an error dialogue?
+    # assert new_name == file.name  # TODO: write an error dialogue?
