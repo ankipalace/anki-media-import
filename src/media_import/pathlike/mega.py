@@ -4,8 +4,8 @@ import requests
 import json
 import re
 
-from Crypto.Cipher import AES
-from Crypto.Util import Counter
+from Crypto.Cipher import AES  # type: ignore
+from Crypto.Util import Counter  # type: ignore
 from mega.errors import RequestError as MegaReqError  # type: ignore
 from mega.crypto import (  # type: ignore
     a32_to_str,
