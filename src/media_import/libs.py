@@ -44,7 +44,7 @@ def uninstall_pycrypto() -> None:
         shutil.rmtree(pycrypto_path)
     except PermissionError:
         shutil.rmtree(pycrypto_path, ignore_errors=True)  # remove as much as possible
-        tmpdir = TemporaryDirectory()  # add ignore_cleanup_errors=True for python 3.10
+        tmpdir = TemporaryDirectory()
         dest_path = Path(tmpdir.name) / "Crypto"
         os.rename(pycrypto_path, dest_path)
         try:
