@@ -27,7 +27,6 @@ def install_pycrypto() -> None:
             pycrypto_name = pycrypto_base.format("win32", "")
 
     pycrypto_path = Path(__file__).parent / "pycryptodome" / pycrypto_name
-    dist_info_name = "pycryptodome-3.10.1.dist-info"
 
     with zipfile.ZipFile(pycrypto_path) as zfile:
         zfile.extractall(LIBS_DIR)
