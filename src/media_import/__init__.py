@@ -11,7 +11,7 @@ libs_dir = Path(__file__).resolve().parent / "libs"
 sys.path.append(str(libs_dir))
 
 try:
-    import Crypto.Cipher
+    from Crypto.Cipher import AES  # type: ignore
 except:
     install_pycrypto()
 
