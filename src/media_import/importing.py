@@ -331,5 +331,5 @@ def add_media(file: FileLike) -> None:
     data = file.read_bytes()
     new_name = mw.col.media.write_data(file.name, data)
 
-    if new_name != file.name:
-        pass
+    # there are sentry reports of AssertionErrors happening here, not sure how this can happen
+    assert new_name == file.name
