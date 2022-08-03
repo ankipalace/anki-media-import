@@ -155,7 +155,7 @@ def _import_media(
     unnormalized = find_unnormalized_name(files_list)
     if len(unnormalized):
         finish_import(
-            f"{len(unnormalized)} files have invalid file names: {unnormalized}",
+            f"{len(unnormalized)} files have invalid file names: {[x.name for x in  unnormalized]}",
             success=False,
         )
         return
@@ -330,4 +330,6 @@ def add_media(file: FileLike) -> None:
     """
     data = file.read_bytes()
     new_name = mw.col.media.write_data(file.name, data)
-    assert new_name == file.name  # TODO: write an error dialogue?
+
+    if new_name != file.name:
+        pass
