@@ -244,11 +244,14 @@ class FolderAsZipImporter:
             request = self.request
             if request.isFinished():
                 return (True, "Finished")
+
+            # calculating percent to prevent overflow errors in mw.progress.update
+            percent_received = int(request.receivedBytes() / request.totalBytes() * 100)
             mw.taskman.run_on_main(
                 lambda: mw.progress.update(
                     label="Downloading folder",
-                    value=request.receivedBytes(),
-                    max=request.totalBytes(),
+                    value=percent_received,
+                    max=100,
                 )
             )
 
