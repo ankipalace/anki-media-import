@@ -3,6 +3,7 @@ import unicodedata
 from concurrent.futures import Future
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, NamedTuple, Sequence, Tuple
+import os
 
 from anki.media import media_paths_from_col_path
 from aqt import mw
@@ -118,6 +119,7 @@ def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None
 
     def finish_import(result: ImportResult) -> None:
         mw.progress.finish()
+        mw.col.media.check()
         on_done(result)
 
     logs: List[str] = []
@@ -322,14 +324,15 @@ def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     return name_conflicts
 
 
-def add_media(file: FileLike) -> None:
+def add_media(file: FileLike) -> bool:
     """
-    Tries to add media with the same basename.
-    But may change the name if it overlaps with existing media.
-    Therefore make sure there isn't an existing media with the same name!
+    Returns true if file was added.
+    col.media.check() should be called at the end.
     """
-    data = file.read_bytes()
-    new_name = mw.col.media.write_data(file.name, data)
-
-    # there are sentry reports of AssertionErrors happening here, not sure how this can happen
-    assert new_name == file.name
+    file_path = os.path.join(mw.col.media.dir(), file.name)
+    if os.path.exists(file_path):
+        return False
+    with open(file_path, "wb") as f:
+        data = file.read_bytes()
+        f.write(data)
+        return True
