@@ -1,7 +1,10 @@
 import sys
 from typing import Any, List
 from pathlib import Path
-from aqt import gui_hooks, mw
+
+from anki.hooks import wrap
+from aqt import mw
+from aqt.addons import AddonManager
 
 from .libs import install_pycrypto, uninstall_pycrypto
 
@@ -15,13 +18,19 @@ try:
 except:
     install_pycrypto()
 
+# exposed functions
 from .ui import open_import_dialog, ImportDialog
 
 
-def on_delete_addon(dial: Any, ids: List[str]) -> None:
+def on_delete_addon(mgr: AddonManager, module: str) -> None:
     addon_id = mw.addonManager.addonFromModule(__name__)
-    if addon_id in ids:
+    if module == addon_id:
         uninstall_pycrypto()
 
 
-gui_hooks.addons_dialog_will_delete_addons.append(on_delete_addon)
+# Triggered when addon is deleted & updated
+AddonManager.deleteAddon = wrap(  # type: ignore
+    old=AddonManager.deleteAddon,
+    new=on_delete_addon,
+    pos="before",
+)
