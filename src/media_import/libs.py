@@ -1,6 +1,7 @@
 import sys
 import zipfile
 import os
+import platform
 from tempfile import TemporaryDirectory
 from pathlib import Path
 import shutil
@@ -19,7 +20,10 @@ def install_pycrypto() -> None:
         else:
             pycrypto_name = pycrypto_base.format("manylinux1", "_i686")
     elif sys.platform.startswith("darwin"):
-        pycrypto_name = pycrypto_base.format("macosx_10_9", "_x86_64")
+        if platform.processor() == "arm":
+            pycrypto_name = pycrypto_base.format("macosx_12_0", "_arm64")
+        else:
+            pycrypto_name = pycrypto_base.format("macosx_10_9", "_x86_64")
     elif sys.platform.startswith("win32"):
         if IS_64BITS:
             pycrypto_name = pycrypto_base.format("win", "_amd64")
