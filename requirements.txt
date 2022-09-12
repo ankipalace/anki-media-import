@@ -1,7 +1,7 @@
 #certifi==2021.5.30
 charset-normalizer==2.0.4
 idna==3.2
-mega.py==1.0.8
+pyaes==1.6.1
 #pathlib==1.0.1
 pbr==5.6.0
 #pycryptodome==3.10.1 # This is platform dependant, so need to be bundled separately.
