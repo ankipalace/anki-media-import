@@ -4,10 +4,8 @@ import requests
 import json
 import re
 
-from Crypto.Cipher import AES  # type: ignore
-from Crypto.Util import Counter  # type: ignore
-from mega.errors import RequestError as MegaReqError  # type: ignore
-from mega.crypto import (  # type: ignore
+from pyaes import AESModeOfOperationCTR, Counter  # type: ignore
+from .megacrypto import (  # type: ignore
     a32_to_str,
     base64_to_a32,
     base64_url_decode,
@@ -17,6 +15,18 @@ from mega.crypto import (  # type: ignore
 
 from .base import RootPath, FileLike
 from .errors import *
+
+
+def error_from_err_code(ecode: int) -> AddonError:
+    if ecode in (-8, -9, -13):
+        return RootNotFoundError(ecode)
+    elif ecode in (-1, -3):
+        return ServerError(ecode)
+    elif ecode in (-4, -17):
+        return RateLimitError(ecode)
+    else:
+        return RequestError(ecode, "Mega request error")
+
 
 """
 Mega node (file/folder) datatype:
@@ -81,7 +91,7 @@ class Mega:
         except IndexError:
             int_resp = None
         if int_resp is not None:
-            raise MegaReqError(int_resp)
+            raise error_from_err_code(int_resp)
         return json_resp[0]
 
     def download_file(
@@ -96,30 +106,20 @@ class Mega:
         # inaccessible also in the official also in the official web app.
         # Strangely, files can come back later.
         if "g" not in file_data:
-            raise MegaReqError("File not accessible anymore")
+            raise RequestError(-1, "File not accessible anymore")
         file_url = file_data["g"]
         encrypted_file = requests.get(file_url).content
 
         k_str = a32_to_str(k)
-        counter = Counter.new(128, initial_value=((iv[0] << 32) + iv[1]) << 64)
-        aes = AES.new(k_str, AES.MODE_CTR, counter=counter)
+        counter = Counter(initial_value=((iv[0] << 32) + iv[1]) << 64)
+        aes = AESModeOfOperationCTR(k_str, counter=counter)
         file = aes.decrypt(encrypted_file)
 
         return file
 
     def list_files(self, id: str) -> List[dict]:
         data = [{"a": "f", "c": 1, "ca": 1, "r": 1}]
-        try:
-            nodes = self.api_request(data, id)["f"]
-        except MegaReqError as e:
-            if e.code in (-8, -9, -13):
-                raise RootNotFoundError(e.code)
-            elif e.code in (-1, -3):
-                raise ServerError(e.code)
-            elif e.code in (-4, -17):
-                raise RateLimitError(e.code)
-            else:
-                raise RequestError(e.code, e.message)
+        nodes = self.api_request(data, id)["f"]
         return nodes
 
     def parse_url(self, url: str) -> Tuple[str, str, Optional[str]]:
