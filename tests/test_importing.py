@@ -5,7 +5,7 @@ from aqt import AnkiQt
 from aqt.taskman import TaskManager
 from pytest_anki import AnkiSession
 
-TEST_DATA_DIR = Path(__file__).parent / "test_data"
+TEST_DATA_DIR = Path(__file__).parent / "test_data/local_directory"
 
 
 def test_local_import(anki_session: AnkiSession) -> None:
