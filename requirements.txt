@@ -1,1 +1,9 @@
+pyqt5==5.15.5
+pyqt5-qt5==5.15.2
+pyqtwebengine==5.15.5
+pyqtwebengine-qt5==5.15.2
+
 pyaes==1.6.1
+zstandard==0.21.0
+types-protobuf==4.23.0.1
+types-requests==2.31.0.1

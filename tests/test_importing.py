@@ -1,11 +1,14 @@
 from pathlib import Path
 
-from anki.collection import Collection
 from aqt import AnkiQt
 from aqt.taskman import TaskManager
+from pytest import MonkeyPatch
 from pytest_anki import AnkiSession
 
-TEST_DATA_DIR = Path(__file__).parent / "test_data/local_directory"
+TEST_DATA_PATH = Path(__file__).parent / "test_data"
+TEST_LOCAL_DIR = TEST_DATA_PATH / "local_directory"
+TEST_OLD_APKG_PATH = TEST_DATA_PATH / "old_format.apkg"
+TEST_NEW_APKG_PATH = TEST_DATA_PATH / "new_format.apkg"
 
 
 def test_local_import(anki_session: AnkiSession) -> None:
@@ -13,7 +16,27 @@ def test_local_import(anki_session: AnkiSession) -> None:
     with anki_session.profile_loaded():
         from src.media_import.pathlike.local import LocalRoot
 
-        root = LocalRoot(TEST_DATA_DIR)
+        root = LocalRoot(TEST_LOCAL_DIR)
+        mw = anki_session.mw
+        _test_import(root, mw)
+
+
+def test_old_apkg_import(anki_session: AnkiSession) -> None:
+
+    with anki_session.profile_loaded():
+        from src.media_import.pathlike.apkg import ApkgRoot
+
+        root = ApkgRoot(TEST_OLD_APKG_PATH)
+        mw = anki_session.mw
+        _test_import(root, mw)
+
+
+def test_new_apkg_import(anki_session: AnkiSession) -> None:
+
+    with anki_session.profile_loaded():
+        from src.media_import.pathlike.apkg import ApkgRoot
+
+        root = ApkgRoot(TEST_NEW_APKG_PATH)
         mw = anki_session.mw
         _test_import(root, mw)
 
@@ -30,7 +53,7 @@ def test_gdrive_import(anki_session: AnkiSession) -> None:
         _test_import(root, mw)
 
 
-def test_gdrive_as_folder_import(anki_session: AnkiSession, monkeypatch) -> None:
+def test_gdrive_as_folder_import(anki_session: AnkiSession, monkeypatch: MonkeyPatch) -> None:
     # does not work yet, the js here:
     # https://github.com/ankipalace/anki-media-import/blob/7bf9cfb1d99da9eed3654ee8586e4a3cad0fa899/src/media_import/pathlike/gdrive.py#L176
     # is never executed
@@ -55,18 +78,18 @@ def test_mega_import(anki_session: AnkiSession) -> None:
         from src.media_import.pathlike.mega import MegaRoot
 
         root = MegaRoot("https://mega.nz/folder/HzgAAZbI#ntmzJkB4N_2N0BXdzVUvXA")
-        mw: Collection = anki_session.mw
+        mw: AnkiQt = anki_session.mw
         _test_import(root, mw)
 
 
-def _test_import(root, mw: AnkiQt) -> None:
+def _test_import(root, mw: AnkiQt) -> None: # type: ignore
     from src.media_import.importing import ImportResult, import_media
 
     on_done_was_called = False
 
     media_dir = Path(mw.col.media.dir())
 
-    def on_done(result: ImportResult):
+    def on_done(result: ImportResult) -> None:
         nonlocal on_done_was_called
         on_done_was_called = True
         assert result.success

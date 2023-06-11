@@ -33,6 +33,9 @@ class IsAFileError(AddonError):
     """Expected a directory, but is a file instead. """
     pass
 
+class IsADirectoryError(AddonError):
+    """Expected a file, but is a directory instead. """
+    pass
 
 class RateLimitError(AddonError):
     """Rate Limit Exceeded. """

@@ -6,7 +6,7 @@ from aqt.qt import *
 from aqt.utils import openFolder, restoreGeom, saveGeom
 
 from .importing import ImportResult
-from .tabs import GDriveTab, ImportTab, LocalTab, MegaTab
+from .tabs import ApkgTab, GDriveTab, ImportTab, LocalTab, MegaTab
 
 
 class ImportResultDialog(QMessageBox):
@@ -50,7 +50,9 @@ class ImportDialog(QDialog):
         main_layout.addSpacing(10)
 
         self.local_tab = LocalTab(self)
-        main_tab.addTab(self.local_tab, "Local Files")
+        main_tab.addTab(self.local_tab, "Local Folder")
+        self.apkg_tab = ApkgTab(self)
+        main_tab.addTab(self.apkg_tab, "Anki Deck Package (*.apkg)")
         self.gdrive_tab = GDriveTab(self)
         main_tab.addTab(self.gdrive_tab, "Google Drive")
         self.mega_tab = MegaTab(self)
