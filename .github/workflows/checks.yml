@@ -22,7 +22,7 @@ jobs:
           python-version: 3.8
 
       - name: Install Python libraries
-        run: python -m pip install aqt mypy pyqt5-stubs types-requests types-simplejson pycryptodome
+        run: python -m pip install -r dev-requirements.txt
 
       - name: Run mypy
         run: python -m mypy ./src
