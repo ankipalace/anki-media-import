@@ -34,6 +34,7 @@ class ImportDialog(QDialog):
         QDialog.__init__(self, mw, Qt.WindowType.Tool)
         self.setWindowTitle("Import Media")
         self.setMinimumWidth(500)
+        self.setMinimumHeight(230)
         self.setup()
         self.setup_buttons()
         restoreGeom(self, f"addon-mediaimport-import")

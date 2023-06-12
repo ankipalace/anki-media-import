@@ -1,24 +1,13 @@
-import io
 import json
 import zipfile
 from functools import cached_property
 from hashlib import md5
 from pathlib import Path
-from typing import IO, Dict, List, Union
-
-try:
-    import zstandard
-except ImportError:
-    # The import of the add-on shouldn't fail if zstandard is not installed.
-    print("Media Import: zstandard not installed, cannot import apkg files")
-
+from typing import Dict, List, Union
 
 from .base import FileLike, RootPath
-from .errors import IsADirectoryError, MalformedURLError, RootNotFoundError
-from .media_entries_pb2 import MediaEntries  # type: ignore
-
-# chunk size for zstd decompression
-ZSTD_CHUNK_SIZE = 16384
+from .errors import (IncompatibleApkgFormatError, IsADirectoryError,
+                     MalformedURLError, RootNotFoundError)
 
 
 class ApkgRoot(RootPath):
@@ -62,36 +51,8 @@ class ApkgRoot(RootPath):
             # old media file format (json)
             result = json.loads(self.zip_file.read("media").decode("utf-8"))
         except UnicodeDecodeError:
-            # new media file format (zstd compressed protobuf)
-            file_names = _extract_file_names_from_new_media_file(
-                io.BytesIO(self.zip_file.open("media").read())
-            )
-            result = {str(i): file_name for i, file_name in enumerate(file_names)}
+            raise IncompatibleApkgFormatError()
         return result
-
-
-def _extract_file_names_from_new_media_file(file: IO[bytes]) -> List[str]:
-    data = _decompress_zstd_file(file)
-    return _extract_filenames(data)
-
-
-def _decompress_zstd_file(file: IO[bytes]) -> bytes:
-    result = b""
-    dctx = zstandard.ZstdDecompressor()
-    decompressor = dctx.stream_reader(file)
-    while True:
-        chunk = decompressor.read(ZSTD_CHUNK_SIZE)
-        if not chunk:
-            break
-        result += chunk
-    return result
-
-
-def _extract_filenames(data: bytes) -> List[str]:
-    """Extracts the filenames from the new media file format, which is a protobuf file."""
-    result = MediaEntries()
-    result.ParseFromString(data)
-    return [entry.name for entry in result.entries]
 
 
 class FileInZip(FileLike):

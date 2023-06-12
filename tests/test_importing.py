@@ -35,10 +35,14 @@ def test_new_apkg_import(anki_session: AnkiSession) -> None:
 
     with anki_session.profile_loaded():
         from src.media_import.pathlike.apkg import ApkgRoot
+        from src.media_import.pathlike.errors import IncompatibleApkgFormatError
 
-        root = ApkgRoot(TEST_NEW_APKG_PATH)
-        mw = anki_session.mw
-        _test_import(root, mw)
+        try:
+            ApkgRoot(TEST_NEW_APKG_PATH)
+        except IncompatibleApkgFormatError:
+            pass
+        else:
+            raise AssertionError("Expected IncompatibleApkgFormatError")
 
 
 def test_gdrive_import(anki_session: AnkiSession) -> None:

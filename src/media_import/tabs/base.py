@@ -164,6 +164,11 @@ class ImportTab(QWidget):
             # Local File Errors
             except PermissionError as err:
                 self.sub_text.setText(str(err))
+            except IncompatibleApkgFormatError as err:
+                self.sub_text.setText(
+                    "The format of apkg files changed since Anki 2.1.52 and the new format is not supported.\n"
+                    "There is still an option to export apkg files in the old format on the export dialog."
+                    )
 
         mw.taskman.run_in_background(
             self.create_root_file, on_done, {"url": url})
