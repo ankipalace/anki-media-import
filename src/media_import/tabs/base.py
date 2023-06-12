@@ -164,6 +164,7 @@ class ImportTab(QWidget):
             # Local File Errors
             except PermissionError as err:
                 self.sub_text.setText(str(err))
+            # Apkg Errors
             except IncompatibleApkgFormatError as err:
                 self.sub_text.setText(
                     "The format of apkg files changed since Anki 2.1.52 and the new format is not supported.\n"
