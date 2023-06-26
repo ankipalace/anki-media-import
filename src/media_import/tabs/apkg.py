@@ -51,10 +51,6 @@ class ApkgTab(ImportTab):
         dialog.setNameFilter(self.file_name_filter())
         dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
         if is_win or is_lin:
-            # Windows directory chooser doesn't display files
-            # Some linux directory choosers (Nautilus) don't let you navigate directories
-            # by clicking them and show they greyed them out when FileMode.Directory is set
-            # TODO: Check whether to use native or qt file chooser
             dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         return dialog
 
