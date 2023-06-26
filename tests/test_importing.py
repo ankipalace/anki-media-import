@@ -57,23 +57,23 @@ def test_gdrive_import(anki_session: AnkiSession) -> None:
         _test_import(root, mw)
 
 
-def test_gdrive_as_folder_import(anki_session: AnkiSession, monkeypatch: MonkeyPatch) -> None:
-    # does not work yet, the js here:
-    # https://github.com/ankipalace/anki-media-import/blob/7bf9cfb1d99da9eed3654ee8586e4a3cad0fa899/src/media_import/pathlike/gdrive.py#L176
-    # is never executed
+# def test_gdrive_as_folder_import(anki_session: AnkiSession, monkeypatch: MonkeyPatch) -> None:
+#     # the test does not work, the js here:
+#     # https://github.com/ankipalace/anki-media-import/blob/7bf9cfb1d99da9eed3654ee8586e4a3cad0fa899/src/media_import/pathlike/gdrive.py#L176
+#     # is never executed
 
-    with anki_session.profile_loaded():
-        from src.media_import.pathlike.gdrive import GDriveRoot
+#     with anki_session.profile_loaded():
+#         from src.media_import.pathlike.gdrive import GDriveRoot
 
-        monkeypatch.setattr(
-            "src.media_import.importing.GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD", 0
-        )
+#         monkeypatch.setattr(
+#             "src.media_import.importing.GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD", 0
+#         )
 
-        root = GDriveRoot(
-            "https://drive.google.com/drive/folders/1goqb4kHJHhxw4NASSd4vXMp6h04bansc"
-        )
-        mw = anki_session.mw
-        _test_import(root, mw)
+#         root = GDriveRoot(
+#             "https://drive.google.com/drive/folders/1goqb4kHJHhxw4NASSd4vXMp6h04bansc"
+#         )
+#         mw = anki_session.mw
+#         _test_import(root, mw)
 
 
 def test_mega_import(anki_session: AnkiSession) -> None:
@@ -91,12 +91,14 @@ def _test_import(root, mw: AnkiQt) -> None: # type: ignore
 
     on_done_was_called = False
 
-    media_dir = Path(mw.col.media.dir())
 
     def on_done(result: ImportResult) -> None:
         nonlocal on_done_was_called
         on_done_was_called = True
+
         assert result.success
+
+        media_dir = Path(mw.col.media.dir())
         assert set(get_filenames_in_collection(media_dir)) == set(
             ["test1.png", "test2.png", "test3.jpg"]
         )
