@@ -175,9 +175,11 @@ def _import_media(
     if len(name_conflicts):
         msg = f"{len(name_conflicts)} files have the same name as existing media files:"
         log(msg)
+        name_conflict_truncated = name_conflicts[:10]
         file_names_str = ""
-        for file in name_conflicts:
+        for file in name_conflict_truncated:
             file_names_str += file.name + "\n"
+        file_names_str += "...\n" if len(name_conflicts) > 10 else ""
         log(file_names_str + "-" * 16)
         ask_msg = msg + "\nDo you want to import the rest of the files?"
         mw.progress.finish()  # Close progress window for askUserDialog
