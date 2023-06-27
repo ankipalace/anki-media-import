@@ -9,10 +9,13 @@ def vendor_requirements():
     """Install requirements into the src/media_import/libs directory."""
     subprocess.run(
         [
+            "python",
+            "-m",
             "pip",
             "install",
             "--no-deps",
             "--target=./src/media_import/libs",
+            "--upgrade",
             "-r",
             "requirements.txt",
         ],
