@@ -178,9 +178,14 @@ class MediaImporter:
         if len(name_conflicts):
             msg = f"{len(name_conflicts)} files have the same name as existing media files:"
             self._log(msg)
+
+            max_file_amount_in_msg = 10
+            name_conflict_truncated = name_conflicts[:max_file_amount_in_msg]
             file_names_str = ""
-            for file in name_conflicts:
+            for file in name_conflict_truncated:
                 file_names_str += file.name + "\n"
+            file_names_str += "...\n" if len(name_conflicts) > max_file_amount_in_msg else ""
+
             self._log(file_names_str + "-" * 16)
             ask_msg = msg + "\nDo you want to import the rest of the files?"
             diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
