@@ -40,8 +40,9 @@ class ApkgRoot(RootPath):
     def list_files(self) -> List["FileLike"]:
         # The media file contains a mapping from media filenames inside the zip file to the original filenames.
         old_to_new_name = self._media_dict()
+        zip_file = zipfile.ZipFile(self.path, "r")
         files: List["FileLike"] = [
-            FileInZip(new, zip_path=self.path, name_in_zip=old)
+            FileInZip(new, zip_file=zip_file, name_in_zip=old)
             for old, new in old_to_new_name.items()
         ]
         return files
@@ -64,12 +65,12 @@ class FileInZip(FileLike):
     def __init__(
         self,
         name: str,
-        zip_path: Path,
+        zip_file: zipfile.ZipFile,
         name_in_zip: str,
     ):
         self.name = name
         self.extension = name.split(".")[-1]
-        self._zip_file: zipfile.ZipFile = zipfile.ZipFile(zip_path, "r")
+        self._zip_file = zip_file 
         self._name_in_zip = name_in_zip
 
     @cached_property
@@ -85,6 +86,6 @@ class FileInZip(FileLike):
 
     def is_identical(self, file: FileLike) -> bool:
         try:
-            return file.size == self.size and file.md5 == self.md5  # type: ignore
+            return file.size == self.size and file.md5 == self.md5 # type: ignore
         except AttributeError:
             return file.size == self.size
