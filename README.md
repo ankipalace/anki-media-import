@@ -20,3 +20,14 @@ Then you can run mypy:
 ```bash
 mypy
 ```
+
+## Tests
+You need to build the add-on first:
+```bash
+python scripts/build.py
+```
+
+Then you can run pytest:
+```bash
+python -m pytest tests
+```
