@@ -1,18 +1,33 @@
-It may not be possible to delete the add-on during runtime.
-In that case, you will need to open the addon directory by clicking 'View Files',
-close Anki, and manually delete the addon directory.
-
 # Development
 
-Run the following code to install all required packages
-
+## Installing packages needed for development
 ```bash
-pip install --no-deps --target=./src/media_import/libs -r requirements.txt
+pip install -r dev-requirements.txt
 ```
 
-Run the following code to get a list of packages to add to requirements.txt
-
+## Building the add-on
 ```bash
-pip install --target=./temp/libs <package_name>
-pip freeze --path=./temp/libs > temp_reqs.txt
+python scripts/build.py
+```
+
+## Type checking
+You need to build the add-on first:
+```bash
+python scripts/build.py
+```
+
+Then you can run mypy:
+```bash
+mypy
+```
+
+## Tests
+You need to build the add-on first:
+```bash
+python scripts/build.py
+```
+
+Then you can run pytest:
+```bash
+python -m pytest tests
 ```

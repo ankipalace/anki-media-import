@@ -1,9 +1,10 @@
+from functools import cached_property
 from hashlib import md5
-from typing import List, Union, Optional
 from pathlib import Path
+from typing import List, Union
 
-from .base import RootPath, FileLike
-from .errors import RootNotFoundError, IsAFileError, MalformedURLError
+from .base import FileLike, RootPath
+from .errors import IsAFileError, MalformedURLError, RootNotFoundError
 
 
 class LocalRoot(RootPath):
@@ -49,8 +50,6 @@ class LocalFile(FileLike):
     name: str
     extension: str
 
-    _size: Optional[int]
-    _md5: Optional[str]
     path: Path
 
     def __init__(self, path: Path):
@@ -58,20 +57,14 @@ class LocalFile(FileLike):
         self.name = path.name
         self.extension = path.suffix[1:]
         self.path = path
-        self._size = None
-        self._md5 = None
 
-    @property
-    def size(self) -> int:  # type: ignore
-        if not self._size:
-            self._size = self.path.stat().st_size
-        return self._size
+    @cached_property
+    def size(self) -> int: # type: ignore
+        return self.path.stat().st_size
 
-    @property
+    @cached_property
     def md5(self) -> str:
-        if not self._md5:  # Cache result
-            self._md5 = md5(self.read_bytes()).hexdigest()
-        return self._md5
+        return md5(self.read_bytes()).hexdigest()
 
     def read_bytes(self) -> bytes:
         return self.path.read_bytes()

@@ -1,12 +1,12 @@
+import os
 import traceback
 import unicodedata
 from concurrent.futures import Future
 from datetime import datetime, timedelta
-from typing import Callable, Dict, List, NamedTuple, Sequence, Tuple
-import os
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
+import aqt
 from anki.media import media_paths_from_col_path
-from aqt import mw
 from aqt.utils import askUserDialog
 from requests.exceptions import RequestException
 
@@ -110,168 +110,187 @@ class ImportInfo:
                 return "%3.1f%s" % (size, unit)
             size = size / 1000
         return "%.1f%s" % (size, "TB")
-
-
+        
 def import_media(src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
-    """
-    Import media from a directory, and its subdirectories.
-    """
+    """Import media from a directory, and its subdirectories."""
+    MediaImporter().import_media(src, on_done)
 
-    def finish_import(result: ImportResult) -> None:
-        mw.progress.finish()
-        mw.col.media.check()
-        on_done(result)
+class MediaImporter:
 
-    logs: List[str] = []
-    mw.progress.start(parent=mw, label="Importing media", immediate=True)
-    try:
-        _import_media(logs, src, finish_import)
-    except Exception as err:
-        tb = traceback.format_exc()
-        print(tb)
-        print(str(err))
-        logs.append(tb)
-        logs.append(str(err))
-        res = ImportResult(logs, success=False)
-        finish_import(res)
+    def __init__(self) -> None:
+        self._logs: List[str] = []
+        self._on_done: Optional[Callable[[ImportResult], None]] = None
+        self._info: Optional[ImportInfo] = None
+        self._src: Optional[RootPath] = None
+        self._files_list: Optional[List[FileLike]] = None
 
+    def import_media(self, src: RootPath, on_done: Callable[[ImportResult], None]) -> None:
+        """Import media from a directory, and its subdirectories."""
+        self._on_done = on_done
+        self._src = src
 
-def _import_media(
-    logs: List[str], src: RootPath, on_done: Callable[[ImportResult], None]
-) -> None:
-    def log(msg: str) -> None:
-        print(f"Media Import: {msg}")
-        logs.append(msg)
+        try:
+            self._import_media_part_1()
+        except Exception as err:
+            tb = traceback.format_exc()
+            print(tb)
+            print(str(err))
+            self._logs.append(tb)
+            self._logs.append(str(err))
+            self._finish_import("", success=False)
 
-    def finish_import(msg: str, success: bool) -> None:
-        log(msg)
-        result = ImportResult(logs, success)
-        on_done(result)
+    def _import_media_part_1(self) -> None:
 
-    # 1. Get the name of all media files.
-    files_list = src.files
-    info = ImportInfo(files_list)
-    log(f"{info.tot} media files found.")
+        # Get the name of all media files.
+        self._files_list = self._src.files
+        self._info = ImportInfo(self._files_list)
+        self._log(f"{self._info.tot} media files found.")
 
-    # 2. Normalize file names
-    unnormalized = find_unnormalized_name(files_list)
-    if len(unnormalized):
-        finish_import(
-            f"{len(unnormalized)} files have invalid file names: {[x.name for x in  unnormalized]}",
-            success=False,
-        )
-        return
-
-    # 3. Make sure there isn't a name conflict within new files.
-    if name_conflict_exists(files_list):
-        finish_import("There are multiple files with same filename.", success=False)
-        return
-
-    if info.update_count():
-        log(f"{info.diff} files were skipped because they are identical.")
-
-    # 4. Check collection.media if there is a file with same name.
-    name_conflicts = name_exists_in_collection(files_list)
-    if len(name_conflicts):
-        msg = f"{len(name_conflicts)} files have the same name as existing media files:"
-        log(msg)
-        name_conflict_truncated = name_conflicts[:10]
-        file_names_str = ""
-        for file in name_conflict_truncated:
-            file_names_str += file.name + "\n"
-        file_names_str += "...\n" if len(name_conflicts) > 10 else ""
-        log(file_names_str + "-" * 16)
-        ask_msg = msg + "\nDo you want to import the rest of the files?"
-        mw.progress.finish()  # Close progress window for askUserDialog
-        diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
-        if diag.run() == "Abort Import":
-            # finish_import calls mw.progress.finish()
-            mw.progress.start(parent=mw)
-            finish_import(
-                "Aborted import due to name conflict with existing media", success=False
+        # Normalize file names
+        unnormalized = find_unnormalized_name(self._files_list)
+        if len(unnormalized):
+            self._finish_import(
+                f"{len(unnormalized)} files have invalid file names: {[x.name for x in unnormalized]}",
+                success=False,
             )
             return
-        mw.progress.start(parent=mw, label="Importing media", immediate=True)
-    if info.update_count():
-        diff = info.diff - len(name_conflicts)
-        log(f"{diff} files were skipped because they already exist in collection.")
 
-    # remove name conflicting files from total file count
-    info.tot = len(info.files)
+        # Make sure there isn't a name conflict within new files.
+        if name_conflict_exists(self._files_list):
+            self._finish_import("There are multiple files with same filename.", success=False)
+            return
 
-    if info.curr == 0:
-        finish_import(f"{info.tot} media files were imported", success=True)
-        return
+        if self._info.update_count():
+            self._log(f"{self._info.diff} files were skipped because they are identical.")
 
-    # 5. Add media files in chunk in background.
-    log(f"{info.curr} media files will be processed.")
-    info.calculate_size()
+        # Check collection.media if there is a file with same name in the background
+        # and then continue with part 2 of the import. 
+        # (Checking for file conflicts can take quite a while and we don't want to block the UI.)
+        aqt.mw.taskman.with_progress(
+            task=lambda: name_exists_in_collection(self._files_list),
+            on_done=self._import_media_part_2,
+            label="Analyzing media files",
+        )
 
-    def import_files_list(
-        files_list: List[FileLike] = files_list, info: ImportInfo = info
-    ) -> Tuple[bool, str]:
+    def _import_media_part_2(self, future: Future) -> None:
+        name_conflicts = future.result()
+
+        if len(name_conflicts):
+            msg = f"{len(name_conflicts)} files have the same name as existing media files:"
+            self._log(msg)
+
+            max_file_amount_in_msg = 10
+            name_conflict_truncated = name_conflicts[:max_file_amount_in_msg]
+            file_names_str = ""
+            for file in name_conflict_truncated:
+                file_names_str += file.name + "\n"
+            file_names_str += "...\n" if len(name_conflicts) > max_file_amount_in_msg else ""
+
+            self._log(file_names_str + "-" * 16)
+            ask_msg = msg + "\nDo you want to import the rest of the files?"
+            diag = askUserDialog(ask_msg, buttons=["Abort Import", "Continue Import"])
+            if diag.run() == "Abort Import":
+                self._finish_import(
+                    "Aborted import due to name conflict with existing media", success=False
+                )
+                return
+
+        if self._info.update_count():
+            diff = self._info.diff - len(name_conflicts)
+            self._log(f"{diff} files were skipped because they already exist in collection.")
+
+        # remove name conflicting files from total file count
+        self._info.tot = len(self._info.files)
+
+        if self._info.curr == 0:
+            self._finish_import(f"{self._info.tot} media files were imported", success=True)
+            return
+
+        # Add media files in chunk in background.
+        self._log(f"{self._info.curr} media files will be processed.")
+        self._info.calculate_size()
+
+        if (
+            isinstance(self._src, GDriveRoot)
+            and len(self._files_list) > GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD
+        ):
+            gdrive.download_folder_zip(self._src.id, self._finish_import)
+        else:
+            aqt.mw.taskman.with_progress(
+                task=self._import_files_list, 
+                on_done=self._on_import_done, 
+                label="Importing"
+            )
+        
+
+    def _import_files_list(self) -> Tuple[bool, str]:
         """returns (is_success, result msg)"""
         MAX_ERRORS = 5
         error_cnt = 0  # Count of errors in succession
 
         while True:
             # Last file was added
-            if len(files_list) == 0:
-                return (True, f"{info.tot} media files were imported.")
+            if len(self._files_list) == 0:
+                return (True, f"{self._info.tot} media files were imported.")
 
             # Abort import
-            if mw.progress.want_cancel():
+            if aqt.mw.progress.want_cancel():
                 return (
                     False,
-                    f"Import aborted.\n{info.left} / {info.tot} media files were imported.",
+                    f"Import aborted.\n{self._info.left} / {self._info.tot} media files were imported.",
                 )
 
             progress_msg = (
-                f"Adding media files ({info.left} / {info.tot})\n"
-                f"{info.size_str}/{info.tot_size_str} "
-                f"({info.remaining_time_str} left)"
+                f"Adding media files ({self._info.left} / {self._info.tot})\n"
+                f"{self._info.size_str}/{self._info.tot_size_str} "
+                f"({self._info.remaining_time_str} left)"
             )
-            mw.taskman.run_on_main(
-                lambda: mw.progress.update(
-                    label=progress_msg, value=info.left, max=info.tot
+            aqt.mw.taskman.run_on_main(
+                lambda: aqt.mw.progress.update(
+                    label=progress_msg, value=self._info.left, max=self._info.tot
                 )
             )
 
-            file = files_list.pop(0)
-            info.update_size(file)
+            file = self._files_list.pop(0)
+            self._info.update_size(file)
 
             try:
                 add_media(file)
                 error_cnt = 0  # reset error_cnt on success
             except (AddonError, RequestException) as err:
                 error_cnt += 1
-                log("-" * 16 + "\n" + str(err) + "\n" + "-" * 16)
+                self._log("-" * 16 + "\n" + str(err) + "\n" + "-" * 16)
                 if error_cnt > MAX_ERRORS:
-                    log(f"{info.left} files were not imported.")
-                    if info.left < 10:
-                        for file in files_list:
-                            log(file.name)
+                    self._log(f"{self._info.left} files were not imported.")
+                    if self._info.left < 10:
+                        for file in self._files_list:
+                            self._log(file.name)
                     return (
                         False,
-                        f"{info.left} / {info.tot} media files were imported.",
+                        f"{self._info.left} / {self._info.tot} media files were imported.",
                     )
                 else:
-                    files_list.append(file)
+                    self._files_list.append(file)
 
-    def on_import_done(future: Future) -> None:
+    def _on_import_done(self, future: Future) -> None:
         try:
             (success, msg) = future.result()
-            finish_import(msg, success)
+            self._finish_import(msg, success)
         except Exception as err:
             raise err
 
-    if (
-        isinstance(src, GDriveRoot)
-        and len(files_list) > GDRIVE_DOWNLOAD_AS_ZIP_THRESHOLD
-    ):
-        gdrive.download_folder_zip(src.id, finish_import)
-    else:
-        mw.taskman.run_in_background(task=import_files_list, on_done=on_import_done)
+    def _finish_import(self, msg: str, success: bool) -> None:
+        self._log(msg)
+        result = ImportResult(self._logs, success)
+        aqt.mw.progress.finish()
+        aqt.mw.col.media.check()
+        self._on_done(result)
+
+    def _log(self, msg: str) -> None:
+        print(f"Media Import: {msg}")
+        self._logs.append(msg)
+
+
 
 
 def find_unnormalized_name(files: Sequence[FileLike]) -> List[FileLike]:
@@ -308,7 +327,7 @@ def name_conflict_exists(files_list: List[FileLike]) -> bool:
 def name_exists_in_collection(files_list: List[FileLike]) -> List[FileLike]:
     """Returns list of files whose names conflict with existing media files.
     And remove files if identical file exists in collection."""
-    media_dir = LocalRoot(media_paths_from_col_path(mw.col.path)[0], recursive=False)
+    media_dir = LocalRoot(media_paths_from_col_path(aqt.mw.col.path)[0], recursive=False)
     collection_file_paths = media_dir.files
     collection_files = {file.name: file for file in collection_file_paths}
 
@@ -331,7 +350,7 @@ def add_media(file: FileLike) -> bool:
     Returns true if file was added.
     col.media.check() should be called at the end.
     """
-    file_path = os.path.join(mw.col.media.dir(), file.name)
+    file_path = os.path.join(aqt.mw.col.media.dir(), file.name)
     if os.path.exists(file_path):
         return False
     with open(file_path, "wb") as f:

@@ -47,6 +47,7 @@ class ImportTab(QWidget):
     malformed_url_msg: str
     root_not_found_msg: str
     is_a_file_msg: str
+    is_a_directory_msg: str
 
     def __init__(self, dialog: "ImportDialog"):
         QWidget.__init__(self, dialog)
@@ -137,6 +138,8 @@ class ImportTab(QWidget):
                 self.sub_text.setText(self.root_not_found_msg)
             except IsAFileError:
                 self.sub_text.setText(self.is_a_file_msg)
+            except IsADirectoryError:
+                self.sub_text.setText(self.is_a_directory_msg)
             except RateLimitError as err:
                 self.sub_text.setText(
                     "Rate limit exceeded. Please try again tomorrow. ({err.code})")
@@ -161,6 +164,12 @@ class ImportTab(QWidget):
             # Local File Errors
             except PermissionError as err:
                 self.sub_text.setText(str(err))
+            # Apkg Errors
+            except IncompatibleApkgFormatError as err:
+                self.sub_text.setText(
+                    "The format of apkg files changed since Anki 2.1.52 and the new format is not supported.\n"
+                    "There is still an option to export apkg files in the old format on the export dialog."
+                    )
 
         mw.taskman.run_in_background(
             self.create_root_file, on_done, {"url": url})

@@ -33,6 +33,9 @@ class IsAFileError(AddonError):
     """Expected a directory, but is a file instead. """
     pass
 
+class IsADirectoryError(AddonError):
+    """Expected a file, but is a directory instead. """
+    pass
 
 class RateLimitError(AddonError):
     """Rate Limit Exceeded. """
@@ -46,4 +49,8 @@ class ServerError(AddonError):
 
 class RequestError(AddonError):
     """Other various errors that happened during request."""
+    pass
+
+class IncompatibleApkgFormatError(AddonError):
+    """The apkg file format is not compatible with the add-on."""
     pass
